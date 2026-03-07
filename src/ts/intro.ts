@@ -12,13 +12,13 @@ interface Slide {
 const SLIDES: Slide[] = [
     { text: "Northern Europe\n1241 AD", hold: 2600 },
     { text: "", hold: 150 },
-    { text: "The Hanseatic League binds the merchant cities of the Baltic coast.", hold: 3400, triggerSound: "Deus_Maris" },
-    { text: "From Lübeck they sail north and east,\ncarrying grain, timber, cloth, and fur.", hold: 3600 },
-    { text: "But the League is a closed club,", hold: 1500, keep: true },
-    { text: "a secret society of powerful merchants.", hold: 2000 },
-
-    { text: "You are a young merchant with one ship,\na little gold, and great ambition.", hold: 4000 },
-    { text: "Set sails, young merchant!", hold: 2000 },
+    { text: "The Hanseatic League binds the merchant cities of the Baltic coast.", hold: 3700, triggerSound: "Deus_Maris" },
+    { text: "From Lübeck they sail north and east,\ncarrying grain, timber, cloth, and fur.", hold: 3500 },
+    { text: "But the League is a closed club, \na secret society of powerful merchants.", hold: 3500 },
+    { text: "A network of alliances, favors, and debts keeps the outsiders out.", hold: 3500 },
+    { text: "Yet still...", hold: 1500 },
+    { text: "... are you a young merchant with one ship,\na little gold, and great ambition.", hold: 3700 },
+    { text: "Set sail, young merchant!", hold: 2000 },
     { text: "The Baltic awaits.", hold: 2000 },
 ];
 

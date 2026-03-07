@@ -1,5 +1,5 @@
 import { TickSystem } from "../../ecs/System";
-import { Position, Ship, TravelRoute } from "../components";
+import { Position, Ship, TravelRoute, NavigationPath } from "../components";
 
 /** Advances ships with an active TravelRoute along their path each frame. */
 export class MovementSystem extends TickSystem {
@@ -16,7 +16,22 @@ export class MovementSystem extends TickSystem {
             pos.y = route.origin.y + (route.destination.y - route.origin.y) * route.progress;
 
             if (route.progress >= 1) {
-                entity.removeComponent(TravelRoute); // arrived
+                entity.removeComponent(TravelRoute);
+
+                // If the ship has a multi-hop NavigationPath, advance to the next segment.
+                const navPath = entity.getComponent(NavigationPath);
+                if (navPath && !navPath.finished) {
+                    navPath.currentIndex++;
+                    const next = navPath.nextWaypoint;
+                    if (next) {
+                        const cur = navPath.currentWaypoint!;
+                        entity.addComponent(new TravelRoute(cur, next));
+                    } else {
+                        entity.removeComponent(NavigationPath);
+                    }
+                } else if (navPath) {
+                    entity.removeComponent(NavigationPath);
+                }
             }
         }
     }
