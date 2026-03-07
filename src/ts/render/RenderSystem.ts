@@ -2,6 +2,7 @@ import { TickSystem } from "../ecs/System";
 import { Position, Name, City, Ship, TravelRoute, PlayerControlled, Market, NavigationPath } from "../gameplay/components";
 import type { NavigationGraph } from "../navigation/Graph";
 import type { Entity } from "../ecs/Entity";
+import { HUDcontroller } from "./HUDcontroller";
 
 const MIN_ZOOM = 1.0;
 const MAX_ZOOM = 3.0;
@@ -202,6 +203,10 @@ export class MapRenderSystem extends TickSystem {
         const startNode = graph.nearestNode(shipPos.x, shipPos.y);
         if (startNode === destName) return; // already there
 
+        // Update HUD immediately when attempting to travel to a different destination
+        const hud = HUDcontroller.getInstance();
+        hud.updateOnSeaInfo(ship);
+
         const result = graph.findShortestPath(startNode, destName);
         if (!result) return;
 
@@ -326,7 +331,7 @@ export class MapRenderSystem extends TickSystem {
             // Label
             if (name && this._zoom > 2) {
                 ctx.font = "bold 15px sans-serif";
-                ctx.fillStyle = "#f3c98d";
+                ctx.fillStyle = "#ffdeca";
                 ctx.shadowColor = "#1c0d007a";
                 ctx.shadowBlur = 4;
                 // center the label below the city dot
@@ -334,15 +339,6 @@ export class MapRenderSystem extends TickSystem {
                 ctx.fillText(name.value, sx - textWidth / 2, sy + 28);
 
                 ctx.shadowBlur = 0;
-            }
-
-            // Good count badge
-            if (market && this._zoom > 2) {
-                let count = 0;
-                for (const [, entry] of market.goods()) count += entry.supply;
-                ctx.font = "10px sans-serif";
-                ctx.fillStyle = "rgba(255,255,255,0.6)";
-                ctx.fillText(`${count} units`, sx + 11, sy + 18);
             }
 
             ctx.restore();
@@ -389,7 +385,7 @@ export class MapRenderSystem extends TickSystem {
             if (name && this._zoom > 2) {
                 ctx.save();
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.font = "11px sans-serif";
+                ctx.font = "14px sans-serif";
                 ctx.fillStyle = isPlayer ? "#8dcfff" : "#ffcc88";
                 ctx.shadowColor = "#000";
                 ctx.shadowBlur = 3;

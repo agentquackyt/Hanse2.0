@@ -1,5 +1,6 @@
 import { TickSystem } from "../../ecs/System";
-import { Position, Ship, TravelRoute, NavigationPath } from "../components";
+import { Position, Ship, TravelRoute, NavigationPath, City, Name, Gold } from "../components";
+import { HUDcontroller } from "../../render/HUDcontroller";
 
 /** Advances ships with an active TravelRoute along their path each frame. */
 export class MovementSystem extends TickSystem {
@@ -16,6 +17,15 @@ export class MovementSystem extends TickSystem {
             pos.y = route.origin.y + (route.destination.y - route.origin.y) * route.progress;
 
             if (route.progress >= 1) {
+                // Find the city entity at the destination
+                const destinationCity = this.findCityAtPosition(route.destination);
+                if (destinationCity) {
+                    this.triggerHUDController(destinationCity);
+                    // Clear the "on sea" flag so city info can be displayed
+                    const hud = HUDcontroller.getInstance();
+                    hud.setOnSeaState(false);
+                }
+
                 entity.removeComponent(TravelRoute);
 
                 // If the ship has a multi-hop NavigationPath, advance to the next segment.
@@ -34,5 +44,42 @@ export class MovementSystem extends TickSystem {
                 }
             }
         }
+    }
+
+    /** Find a city entity at the given map position. */
+    private findCityAtPosition(pos: { x: number; y: number }): any {
+        const epsilon = 0.001; // Small tolerance for floating-point comparison
+        for (const entity of this.world.query(Position, City)) {
+            const entityPos = entity.getComponent(Position)!;
+            if (Math.abs(entityPos.x - pos.x) < epsilon && Math.abs(entityPos.y - pos.y) < epsilon) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    /** Trigger the HUD controller to display city information. */
+    private triggerHUDController(city: any): void {
+        const hud = HUDcontroller.getInstance();
+        const nameComp = city.getComponent(Name);
+        const cityComp = city.getComponent(City);
+        const goldComp = city.getComponent(Gold);
+
+        if (nameComp && cityComp) {
+            const cityName = nameComp.value;
+            const population = cityComp.population;
+            const wealth = goldComp?.amount ?? 0;
+            const playtime = this.formatPlaytime(0); // TODO: Get actual playtime from engine
+
+            hud.updateCityInfo(cityName, population, playtime, wealth);
+        }
+    }
+
+    /** Format playtime in HH:MM:SS format. */
+    private formatPlaytime(seconds: number): string {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 }

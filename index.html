@@ -8,7 +8,9 @@
     <link rel="stylesheet" href="src/css/index.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Baskervville:ital,wght@0,400..700;1,400..700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Baskervville:ital,wght@0,400..700;1,400..700&family=Uncial+Antiqua&display=swap"
+        rel="stylesheet">
 </head>
 
 <body>
@@ -24,7 +26,32 @@
     </section>
     <section id="intro-seq" class="screen flex hidden"></section>
     <main id="game" class="screen hidden">
+        <div id="hud">
+            <h2 class="title">The Hanseatic League</h2>
+            <div class="row">
+                <div class="hud-section">
+                    <h2 class="hub-info-city hud-info-title">Lübeck</h2>
+                    <h3 class="hub-info-city-citizens hud-info-value">3000 citizens</h3>
+                </div>
+                <div class="hud-section">
+                    <h2 class="hud-info-title">Playtime</h2>
+                    <h3 class="hub-info-playtime hud-info-value">00:01:11h</h3>
+                </div>
+                <div class="hud-section">
+                    <h2 class="hud-info-title">Wealth</h2>
+                    <h3 class="hub-info-wealth-value hud-info-value">5000 marks</h3>
+                </div>
+            </div>
+        </div>
         <canvas id="world-map"></canvas>
+        <div class="modal hidden">
+            <div class="modal-content">
+                <h2 class="modal-title">City Name</h2>
+                <p class="modal-description">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec vel
+                    sapien eget nunc efficitur tincidunt. Curabitur at felis a enim efficitur commodo.</p>
+                <button class="modal-close">Close</button>
+            </div>
+        </div>
     </main>
     <script src="src/ts/entry.ts"></script>
 </body>

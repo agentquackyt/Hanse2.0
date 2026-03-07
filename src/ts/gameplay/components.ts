@@ -46,7 +46,7 @@ export class Ship extends Component {
         /** Maximum cargo in trade-good units. */
         public cargoCapacity: number = 100,
         /** World-map units per second at full sail. */
-        public speedUnitsPerSecond: number = 20,
+        public speedUnitsPerSecond: number = 10,
     ) { super(); }
 }
 

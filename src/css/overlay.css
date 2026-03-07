@@ -1,0 +1,73 @@
+:root {
+    --overlay-bg: rgba(0, 0, 0, 0.5);
+    --hud-bg: rgba(0, 0, 0, 0.5);
+    --hud-color: #f0c878;
+    --hud-color-sea: #78ccf0;
+
+    --hud-title-font: "Uncial Antiqua", Georgia, "Times New Roman", serif;
+    --hud-font: "Baskervville", Georgia, "Times New Roman", serif;
+    --hud-title-size: 1.65em;
+    --hud-size: 1em;
+    --hud-padding: 1rem;
+    --hud-border-radius: 5px;
+}
+
+/** Modal overlay styles */
+.modal:not(.hidden) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--overlay-bg);
+    z-index: 1000;
+}
+
+
+
+
+/** HUD styles */
+#hud {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(300px, 70vw, 800px);
+    z-index: 1001;
+    background-color: var(--hud-bg);
+    color: var(--hud-color);
+    font-family: var(--hud-font);
+    font-size: var(--hud-size);
+    padding: var(--hud-padding);
+    border-radius: var(--hud-border-radius);
+
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+}
+#hud>.title {
+    font-size: var(--hud-title-size);
+    font-family: var(--hud-title-font);
+}
+
+.row {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    width: 100%;
+    align-items: center;
+    justify-content: space-around;
+    text-align: center;
+}
+
+.hud-section * {
+    transition: color 0.3s ease;
+}
+#hud .hud-section .on-sea {
+    color: var(--hud-color-sea);
+}
