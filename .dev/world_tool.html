@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Coordinate Mapper - Editable</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; background: #f0f2f5; color: #1a1a1b; }
+        .main-layout { display: flex; flex-direction: column; gap: 20px; }
+        .controls { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 0.9rem; font-weight: 600; color: #4a4a4a; }
+        input[type="text"], input[type="file"] { padding: 10px; border: 1px solid #d1d1d1; border-radius: 6px; min-width: 200px; }
+        button { padding: 10px 24px; background-color: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        button:hover { background-color: #0056b3; }
+        #exportBtn { background-color: #28a745; }
+        #exportBtn:hover { background-color: #218838; }
+        
+        #viewer-container { position: relative; display: inline-block; cursor: crosshair; border: 4px solid #fff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); background: #ddd; overflow: hidden; }
+        #target-image { display: block; max-width: 100%; height: auto; }
+        
+        .marker { position: absolute; width: 12px; height: 12px; background: #ff4757; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.3); z-index: 10; }
+        .marker-label { position: absolute; font-size: 11px; font-weight: bold; background: rgba(0,0,0,0.8); color: white; padding: 3px 6px; border-radius: 4px; transform: translate(8px, 8px); white-space: nowrap; z-index: 11; pointer-events: none; }
+
+        .list-container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { color: #666; font-size: 0.85rem; text-transform: uppercase; }
+        .edit-input { width: 100%; padding: 6px; border: 1px solid #eee; border-radius: 4px; }
+        .edit-input:focus { border-color: #007bff; outline: none; }
+    </style>
+</head>
+<body>
+
+    <div class="main-layout">
+        <div class="controls">
+            <div class="input-group">
+                <label>Upload Map Image</label>
+                <input type="file" id="imageInput" accept="image/*">
+            </div>
+            <div class="input-group">
+                <label>Next Point Title</label>
+                <input type="text" id="pointTitle" placeholder="e.g. Lübeck">
+            </div>
+            <div class="input-group">
+                <label>Default Pattern</label>
+                <input type="text" id="defaultPattern" value="Point %id%">
+            </div>
+            <button id="exportBtn">Export JSON</button>
+        </div>
+
+        <div id="viewer-container">
+            <img id="target-image" style="display:none;">
+        </div>
+
+        <div class="list-container" id="listWrapper" style="display:none;">
+            <label>Manage Plotted Points</label>
+            <table id="pointsTable">
+                <thead>
+                    <tr>
+                        <th>Name (Editable)</th>
+                        <th>X (Relative)</th>
+                        <th>Y (Relative)</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const targetImage = document.getElementById('target-image');
+        const viewerContainer = document.getElementById('viewer-container');
+        const pointTitleInput = document.getElementById('pointTitle');
+        const defaultPatternInput = document.getElementById('defaultPattern');
+        const exportBtn = document.getElementById('exportBtn');
+        const tableBody = document.getElementById('tableBody');
+        const listWrapper = document.getElementById('listWrapper');
+
+        let pointsArray = [];
+        let pointCounter = 1;
+
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    targetImage.src = event.target.result;
+                    targetImage.style.display = 'block';
+                    listWrapper.style.display = 'block';
+                    resetData();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function resetData() {
+            pointsArray = [];
+            pointCounter = 1;
+            renderAll();
+        }
+
+        viewerContainer.addEventListener('click', function(e) {
+            if (!targetImage.src) return;
+
+            const rect = targetImage.getBoundingClientRect();
+            const xPixel = e.clientX - rect.left;
+            const yPixel = e.clientY - rect.top;
+
+            const xRel = parseFloat((xPixel / rect.width).toFixed(6));
+            const yRel = parseFloat((yPixel / rect.height).toFixed(6));
+
+            let title = pointTitleInput.value.trim();
+            if (!title) {
+                title = defaultPatternInput.value.replace('%id%', pointCounter);
+            }
+
+            pointsArray.push({ id: Date.now(), title, x: xRel, y: yRel });
+            pointCounter++;
+            pointTitleInput.value = '';
+            renderAll();
+        });
+
+        function renderAll() {
+            // Clear existing UI elements
+            const oldMarkers = document.querySelectorAll('.marker, .marker-label');
+            oldMarkers.forEach(m => m.remove());
+            tableBody.innerHTML = '';
+
+            const rect = targetImage.getBoundingClientRect();
+
+            pointsArray.forEach((point, index) => {
+                // 1. Render Markers on Image
+                const xPx = point.x * rect.width;
+                const yPx = point.y * rect.height;
+
+                const marker = document.createElement('div');
+                marker.className = 'marker';
+                marker.style.left = xPx + 'px';
+                marker.style.top = yPx + 'px';
+
+                const label = document.createElement('div');
+                label.className = 'marker-label';
+                label.innerText = point.title;
+                label.style.left = xPx + 'px';
+                label.style.top = yPx + 'px';
+
+                viewerContainer.appendChild(marker);
+                viewerContainer.appendChild(label);
+
+                // 2. Render Table Row
+                const row = document.createElement('tr');
+                
+                const nameTd = document.createElement('td');
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'edit-input';
+                input.value = point.title;
+                input.oninput = (e) => {
+                    point.title = e.target.value;
+                    label.innerText = e.target.value; // Real-time update on map
+                };
+                nameTd.appendChild(input);
+
+                const xTd = document.createElement('td');
+                xTd.innerText = point.x;
+                
+                const yTd = document.createElement('td');
+                yTd.innerText = point.y;
+
+                row.appendChild(nameTd);
+                row.appendChild(xTd);
+                row.appendChild(yTd);
+                tableBody.appendChild(row);
+            });
+        }
+
+        exportBtn.addEventListener('click', () => {
+            // Transform array back to requested object format
+            const exportObj = {};
+            pointsArray.forEach(p => {
+                const key = p.title || `unnamed_${p.id}`;
+                exportObj[key] = { x: p.x, y: p.y };
+            });
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 4));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "map_coordinates.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        });
+
+        // Re-render markers if window is resized to keep them aligned
+        window.addEventListener('resize', renderAll);
+    </script>
+</body>
+</html>

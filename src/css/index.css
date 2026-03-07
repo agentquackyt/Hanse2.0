@@ -1,0 +1,169 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #060f1e;
+    font-family: sans-serif;
+    color: #fff;
+}
+
+.screen {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.flex {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hidden {
+    display: none;
+}
+
+#world-map {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── Start Screen ─────────────────────────────────────── */
+
+#intro {
+    background:
+        radial-gradient(ellipse at 50% 115%, rgba(20, 55, 110, 0.65) 0%, transparent 55%),
+        linear-gradient(175deg, #04091a 0%, #071628 50%, #060f1e 100%);
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.start-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    animation: fade-up 1.4s ease-out both;
+}
+
+@keyframes fade-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.start-title {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    line-height: 1;
+}
+
+.title-main {
+    font-size: clamp(4rem, 12vw, 9rem);
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    color: #e8c870;
+    text-shadow:
+        0 0 90px rgba(232, 200, 112, 0.18);
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+.start-tagline {
+    font-size: clamp(0.8rem, 2.2vw, 1.15rem);
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.65);
+    margin-top: 6px;
+}
+
+.start-era {
+    font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.hanse-launch {
+    margin-top: 36px;
+    padding: 13px 46px;
+    font-size: clamp(0.8rem, 1.8vw, 0.95rem);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    background: transparent;
+    color: #e8c870;
+    border: 1.5px solid rgba(232, 200, 112, 0.7);
+    cursor: pointer;
+    font-family: Georgia, "Times New Roman", serif;
+    transition: background 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+
+.hanse-launch:hover {
+    background: rgba(232, 200, 112, 0.1);
+    border-color: #e8c870;
+    box-shadow:
+        0 0 22px rgba(232, 200, 112, 0.25),
+        inset 0 0 12px rgba(232, 200, 112, 0.06);
+}
+
+.hanse-launch:active {
+    background: rgba(232, 200, 112, 0.2);
+}
+
+/* ── Cinematic Intro Sequence ──────────────────────────── */
+
+#intro-seq {
+    background: #000;
+    z-index: 100;
+}
+
+.intro-captions-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5em;
+    min-height: 3.5em;
+}
+
+.intro-caption {
+    max-width: 660px;
+    text-align: center;
+    font-size: clamp(1.05rem, 2.8vw, 1.45rem);
+    line-height: 1.75;
+    letter-spacing: 0.03em;
+    color: rgba(255, 255, 255, 0.9);
+    font-family: Georgia, "Times New Roman", serif;
+    opacity: 0;
+    white-space: pre-line;
+    padding: 0 2rem;
+}
+
+.intro-skip {
+    position: absolute;
+    top: 24px;
+    right: 32px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 6px 18px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.intro-skip:hover {
+    color: rgba(255, 255, 255, 0.75);
+    border-color: rgba(255, 255, 255, 0.45);
+}
