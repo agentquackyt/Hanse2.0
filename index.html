@@ -19,12 +19,21 @@
             <div class="start-title">
                 <h1 class="title-main">The Hanseatic League</h1>
             </div>
-            <p class="start-tagline">Baltic Trade Simulator</p>
             <p class="start-era">Northern Europe &middot; 13th Century</p>
-            <button class="hanse-launch">Set Sail</button>
+            <div class="start-actions">
+                <button id="launch-game" class="hanse-launch">Set Sail</button>
+                <button id="new-voyage" class="hanse-launch hanse-launch-secondary hidden">New Voyage</button>
+                <a class="hanse-launch hanse-launch-secondary" href="https://flavortown.hackclub.com/projects/16154" target="_blank">Flavortown</a>
+            </div>
         </div>
     </section>
     <section id="intro-seq" class="screen flex hidden"></section>
+    <section id="loading-screen" class="screen flex hidden">
+        <div class="start-content loading-content">
+            <p id="loading-status" class="loading-status">Preparing the docks...</p>
+            <p id="loading-progress" class="loading-progress">0/0 resources ready</p>
+        </div>
+    </section>
     <main id="game" class="screen hidden">
         <div id="hud">
             <h2 class="title">The Hanseatic League</h2>
@@ -33,13 +42,13 @@
                     <h2 class="hub-info-city hud-info-title">Lübeck</h2>
                     <h3 class="hub-info-city-citizens hud-info-value">3000 citizens</h3>
                 </div>
-                <div class="hud-section">
-                    <h2 class="hud-info-title">Playtime</h2>
-                    <h3 class="hub-info-playtime hud-info-value">00:01:11h</h3>
+                <div class="hud-section hud-section-time">
+                    <h2 class="hud-info-title">Game Time</h2>
+                    <h3 class="hub-info-playtime hud-info-value">Week 1 · Day 1 · 00:00</h3>
                 </div>
                 <div class="hud-section">
                     <h2 class="hud-info-title">Wealth</h2>
-                    <h3 class="hub-info-wealth-value hud-info-value">5000 marks</h3>
+                    <h3 class="hub-info-wealth-value hud-info-value">5000ℳ︁</h3>
                 </div>
             </div>
         </div>

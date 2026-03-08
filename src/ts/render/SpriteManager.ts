@@ -8,6 +8,7 @@ import type { TradeGood } from "../gameplay/components/economy";
 export class SpriteManager {
     private static _instance: SpriteManager | null = null;
     private readonly _sprites = new Map<string, HTMLImageElement>();
+    private readonly _loadingPromises = new Map<string, Promise<void>>();
 
     private constructor() {}
 
@@ -20,13 +21,61 @@ export class SpriteManager {
 
     /** Pre-load an `<img>` element for every good's icon file. */
     loadGoodIcons(goods: readonly TradeGood[]): void {
+        void this.preloadGoodIcons(goods);
+        console.log(`SpriteManager: loading ${this._sprites.size} good icons`);
+    }
+
+    async preloadGoodIcons(
+        goods: readonly TradeGood[],
+        onLoaded?: (goodName: string, loadedCount: number) => void,
+    ): Promise<void> {
+        let loadedCount = 0;
+
         for (const good of goods) {
-            if (this._sprites.has(good.name)) continue;
-            const img = new Image();
-            img.src = `/assets/images/icons/${good.img}`;
+            await this._queueSprite(good).then(() => {
+                loadedCount += 1;
+                onLoaded?.(good.name, loadedCount);
+            });
+        }
+    }
+
+    private _queueSprite(good: TradeGood): Promise<void> {
+        const existingPromise = this._loadingPromises.get(good.name);
+        if (existingPromise) return existingPromise;
+
+        let img = this._sprites.get(good.name);
+        if (!img) {
+            img = new Image();
             this._sprites.set(good.name, img);
         }
-        console.log(`SpriteManager: loading ${this._sprites.size} good icons`);
+
+        if (img.complete && img.naturalWidth > 0) {
+            return Promise.resolve();
+        }
+
+        const promise = new Promise<void>((resolve, reject) => {
+            const onLoad = (): void => {
+                cleanup();
+                resolve();
+            };
+
+            const onError = (): void => {
+                cleanup();
+                reject(new Error(`Failed to load sprite for ${good.name}`));
+            };
+
+            const cleanup = (): void => {
+                img?.removeEventListener("load", onLoad);
+                img?.removeEventListener("error", onError);
+            };
+
+            img!.addEventListener("load", onLoad, { once: true });
+            img!.addEventListener("error", onError, { once: true });
+            img!.src = `/assets/images/icons/${good.img}`;
+        });
+
+        this._loadingPromises.set(good.name, promise);
+        return promise;
     }
 
     /** Retrieve the icon image for a good by name. May still be loading. */

@@ -1,5 +1,5 @@
 import { TickSystem } from "../../ecs/System";
-import { Position, Ship, TravelRoute, NavigationPath, City, Name, Gold } from "../components";
+import { Position, Ship, TravelRoute, NavigationPath, City, Name } from "../components";
 import { HUDcontroller } from "../../render/HUDcontroller";
 
 /** Advances ships with an active TravelRoute along their path each frame. */
@@ -63,23 +63,11 @@ export class MovementSystem extends TickSystem {
         const hud = HUDcontroller.getInstance();
         const nameComp = city.getComponent(Name);
         const cityComp = city.getComponent(City);
-        const goldComp = city.getComponent(Gold);
 
         if (nameComp && cityComp) {
             const cityName = nameComp.value;
             const population = cityComp.population;
-            const wealth = goldComp?.amount ?? 0;
-            const playtime = this.formatPlaytime(0); // TODO: Get actual playtime from engine
-
-            hud.updateCityInfo(cityName, population, playtime, wealth);
+            hud.updateCityInfo(cityName, population);
         }
-    }
-
-    /** Format playtime in HH:MM:SS format. */
-    private formatPlaytime(seconds: number): string {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 }

@@ -1,5 +1,6 @@
 import { EventSystem } from "../../ecs/System";
-import { Gold, Inventory, Market, Ship, type TradeGood } from "../components";
+import { Gold, Inventory, Market, Merchant, Ship, IsPlayerOwned, PlayerControlled, type TradeGood } from "../components";
+import { HUDcontroller } from "../../render/HUDcontroller";
 
 export interface TradeOrder {
     /** "buy"  — ship purchases goods from the city market.
@@ -21,7 +22,10 @@ export class TradeSystem extends EventSystem<TradeOrder> {
         const city = this.world.getEntityById(order.cityId);
         if (!ship || !city) return;
 
-        const shipGold = ship.getComponent(Gold);
+        const playerCompany = ship.hasComponent(PlayerControlled)
+            ? this.world.query(Merchant, Gold, IsPlayerOwned)[0] ?? null
+            : null;
+        const shipGold = playerCompany?.getComponent(Gold) ?? ship.getComponent(Gold);
         const shipInv  = ship.getComponent(Inventory);
         const shipComp = ship.getComponent(Ship);
         const cityMkt  = city.getComponent(Market);
@@ -43,6 +47,7 @@ export class TradeSystem extends EventSystem<TradeOrder> {
             shipGold.amount -= totalCost;
             if (cityGold) cityGold.amount += totalCost;
             cityMkt.update(order.good, { supply: Math.max(0, entry.supply - order.quantity) });
+            HUDcontroller.getInstance().notifyDataChange();
 
         } else {
             // sell: ship → city
@@ -57,6 +62,7 @@ export class TradeSystem extends EventSystem<TradeOrder> {
             shipGold.amount += totalRevenue;
             if (cityGold) cityGold.amount = Math.max(0, cityGold.amount - totalRevenue);
             cityMkt.update(order.good, { supply: entry.supply + order.quantity });
+            HUDcontroller.getInstance().notifyDataChange();
         }
     }
 }

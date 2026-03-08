@@ -51,6 +51,7 @@ export function runIntroSequence(): Promise<void> {
         }
 
         skipBtn.addEventListener("click", () => {
+            AudioManager.getInstance().stop("Deus_Maris");
             overlay.animate(
                 [{ opacity: 1 }, { opacity: 0 }],
                 { duration: 300, fill: "forwards" },

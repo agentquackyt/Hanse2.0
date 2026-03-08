@@ -1,6 +1,8 @@
 import { TickSystem } from "../../ecs/System";
 import { City, Market, CityProduction } from "../components";
 import { GoodsRegistry } from "../GoodsRegistry";
+import { HUDcontroller } from "../../render/HUDcontroller";
+import { DEMAND_DAYS_PER_WEEK, REAL_SECONDS_PER_DAY } from "../GameTime";
 
 /**
  * Production & demand system. Each tick:
@@ -10,8 +12,9 @@ import { GoodsRegistry } from "../GoodsRegistry";
  *    If the good has a recipe, required ingredients are deducted from the
  *    market first. Production is **blocked** when any ingredient is missing.
  *
- * 2) **Demand** — the population consumes goods each tick:
- *    `consumed = good.base_demand × citizens / 1000`
+ * 2) **Demand** — the population consumes a weekly quota over time:
+ *    `weeklyDemand = good.base_demand × citizens / 1000`
+ *    `dailyDemand = weeklyDemand / 7`
  */
 export class MarketSystem extends TickSystem {
     private _elapsed = 0;
@@ -20,6 +23,7 @@ export class MarketSystem extends TickSystem {
         const registry = GoodsRegistry.getInstance();
         this._elapsed += dt;
         if (this._elapsed < registry.tickInterval) return;
+        const elapsed = this._elapsed;
         this._elapsed = 0;
 
         for (const entity of this.world.query(City, Market, CityProduction)) {
@@ -69,7 +73,9 @@ export class MarketSystem extends TickSystem {
             // ---- Demand (population consumption) ----
             for (const [good, entry] of market.goods()) {
                 if (good.base_demand <= 0) continue;
-                const consumed = good.base_demand * citizens / 1000;
+                const weeklyDemand = good.base_demand * citizens / 1000;
+                const dailyDemand = weeklyDemand / DEMAND_DAYS_PER_WEEK;
+                const consumed = dailyDemand * (elapsed / REAL_SECONDS_PER_DAY);
                 const newSupply = Math.max(0, entry.supply - consumed);
                 market.update(good, {
                     supply: newSupply,
@@ -77,5 +83,7 @@ export class MarketSystem extends TickSystem {
                 });
             }
         }
+
+        HUDcontroller.getInstance().notifyDataChange();
     }
 }

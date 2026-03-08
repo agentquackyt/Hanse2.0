@@ -33,6 +33,7 @@ interface ConfigJson {
  */
 export class GoodsRegistry {
     private static _instance: GoodsRegistry | null = null;
+    private static _loadingPromise: Promise<GoodsRegistry> | null = null;
 
     private readonly _goods = new Map<string, TradeGood>();
     private readonly _recipes = new Map<string, Recipe>();
@@ -50,6 +51,10 @@ export class GoodsRegistry {
 
     /** Fetch JSON files and initialise the singleton. */
     static async load(): Promise<GoodsRegistry> {
+        if (GoodsRegistry._instance) return GoodsRegistry._instance;
+        if (GoodsRegistry._loadingPromise) return GoodsRegistry._loadingPromise;
+
+        GoodsRegistry._loadingPromise = (async () => {
         const [goodsRes, configRes] = await Promise.all([
             fetch("/assets/data/goods.json"),
             fetch("/assets/data/config.json"),
@@ -90,6 +95,9 @@ export class GoodsRegistry {
         GoodsRegistry._instance = reg;
         console.log(`GoodsRegistry: loaded ${reg._goods.size} goods, ${reg._recipes.size} recipes`);
         return reg;
+        })();
+
+        return GoodsRegistry._loadingPromise;
     }
 
     // ---- Accessors ----

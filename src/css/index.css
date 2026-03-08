@@ -44,10 +44,36 @@ body {
 
 /* ── Start Screen ─────────────────────────────────────── */
 
-#intro {
-    background: url("../assets/images/_background.webp") center/cover no-repeat;
+#intro,
+#loading-screen {
+    background:
+        radial-gradient(circle at 50% 18%, rgba(240, 200, 120, 0.18) 0%, rgba(240, 200, 120, 0) 34%),
+        linear-gradient(180deg, rgba(10, 8, 7, 0.18) 0%, rgba(10, 8, 7, 0.56) 100%),
+        url("../assets/images/_background.webp") center/cover no-repeat;
     flex-direction: column;
     overflow: hidden;
+}
+
+#intro::before,
+#loading-screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(9, 7, 6, 0.619) 0%, rgba(9, 7, 6, 0.116) 28%, rgba(9, 7, 6, 0.18) 72%, rgba(9, 7, 6, 0.613) 100%),
+        linear-gradient(180deg, rgba(9, 7, 6, 0.52) 0%, rgba(9, 7, 6, 0.075) 22%, rgba(9, 7, 6, 0.275) 100%);
+    pointer-events: none;
+}
+
+#intro::after,
+#loading-screen::after {
+    content: "";
+    position: absolute;
+    inset: 16px;
+    border: 1px solid rgba(240, 200, 120, 0.18);
+    border-radius: 18px;
+    box-shadow: inset 0 0 0 1px rgba(255, 226, 177, 0.03);
+    pointer-events: none;
 }
 
 .start-content {
@@ -56,8 +82,34 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     text-align: center;
+    width: min(760px, calc(100vw - 40px));
+    padding: 2rem 2rem 2.3rem;
+}
+
+.start-actions {
+    width: min(100%, 420px);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: .85rem;
+}
+
+.start-content::before {
+    content: "Guild Charter";
+    color: rgba(201, 168, 124, 0.9);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    margin-bottom: .25rem;
+    animation: fade-up 1s ease-out both;
+    animation-delay: .9s;
+}
+
+.loading-content::before {
+    content: "Harbor Ledger";
 }
 
 @keyframes fade-up {
@@ -96,14 +148,30 @@ body {
 .start-title {
     display: flex;
     align-items: baseline;
-
+    justify-content: center;
     gap: 14px;
     line-height: 1;
+    position: relative;
+    width: 100%;
+    padding-bottom: 1.35rem;
+    animation: fade-up 1.4s ease-out both;
+    animation-delay: .2s;
+}
+
+.start-title::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: min(240px, 65%);
+    height: 1px;
+    background: linear-gradient(90deg, rgba(240, 200, 120, 0) 0%, rgba(240, 200, 120, 0.7) 50%, rgba(240, 200, 120, 0) 100%);
+    transform: translateX(-50%);
 }
 
 .title-main {
-    font-size: 7em;
-    letter-spacing: 0.18em;
+    font-size: clamp(3.1rem, 8vw, 5.4rem);
+    letter-spacing: 0.12em;
     color: rgb(233, 206, 133);
     text-shadow:
         0 0 5px rgba(186, 160, 90, 0.447),
@@ -112,75 +180,187 @@ body {
     font-weight: 400;
     font-style: normal;
     animation: fade-up 1.4s ease-out both;
-    animation-delay: .5s;
-    margin-bottom: 3rem;
+    animation-delay: .3s;
+    margin-bottom: 0;
 }
 
-.start-tagline {
-    font-size: 1.4em;
-    letter-spacing: 0.38em;
-    text-transform: uppercase;
-    color: rgb(240, 202, 99);
-    margin-top: 6px;
-    font-weight: 600;
-    animation: fade-up .8s ease-out both;
-    animation-delay: 1.2s;
-}
 
 .start-era {
-    font-size: 1.1em;
-    letter-spacing: 0.22em;
-    animation: fade-up .8s ease-out both;
-    animation-delay: 1.12s;
+    font-size: .96rem;
+    letter-spacing: 0.18em;
+    animation: fade-down 1.4s ease-out both;
+
+    animation-delay: .3s;
     text-transform: uppercase;
+    color: rgba(231, 201, 150, 0.9);
+    max-width: 34rem;
+    line-height: 1.45;
 }
 
 .hanse-launch {
-    margin-top: 36px;
-    padding: 1.25rem 3.5rem;
-    font-size: 1.4em;
-    letter-spacing: 0.28em;
+    margin-top: 0;
+    min-width: min(100%, 360px);
+    padding: 1.05rem 2.6rem;
+    font-size: 1.08rem;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: #1f0d00;
-    background: rgba(71, 38, 13, 0.7);
-    border: 6px solid rgba(48, 23, 8, 0.5);
+    background: linear-gradient(180deg, rgba(80, 50, 24, 0.92) 0%, rgba(47, 25, 11, 0.98) 100%);
+    border: 1px solid rgba(186, 146, 101, 0.95);
     color: #f0c878;
-    border-radius: .4rem;
+    border-radius: .75rem;
     cursor: pointer;
     font-family: "Baskervville", Georgia, 'Times New Roman', Times, serif;
     font-optical-sizing: auto;
     font-weight: 700;
-    transition: 0.5s;
-    backdrop-filter: blur(2px);
+    transition: transform .2s ease, background .25s ease, box-shadow .25s ease, border-color .25s ease;
+    box-shadow:
+        0 14px 26px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 236, 196, 0.14);
     animation: fade-down 1.25s ease-out both;
-    animation-delay: 1s;
+    animation-delay: 1.4s;
+    text-decoration: none;
+}
+
+.hanse-launch-secondary {
+    background: linear-gradient(180deg, rgba(53, 31, 20, 0.88) 0%, rgba(30, 16, 9, 0.94) 100%);
+    color: rgba(240, 200, 120, 0.92);
+}
+
+.hanse-launch[disabled] {
+    opacity: .65;
+    cursor: wait;
+    transform: none;
+}
+
+.loading-status {
+    margin-top: 1rem;
+    font-size: 1.12rem;
+    letter-spacing: 0.08em;
+    color: #f3d7ab;
+    text-align: center;
+}
+
+.loading-progress {
+    font-size: .92rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(231, 201, 150, 0.82);
+    text-align: center;
 }
 
 .hanse-launch:hover {
-    background: rgba(68, 40, 18, 0.946);
+    background: linear-gradient(180deg, rgba(98, 61, 30, 0.98) 0%, rgba(59, 31, 14, 1) 100%);
+    border-color: rgba(228, 184, 131, 0.95);
     box-shadow:
-        0 0 22px rgba(59, 29, 3, 0.657);
+        0 18px 32px rgba(0, 0, 0, 0.34),
+        0 0 22px rgba(59, 29, 3, 0.38);
+    transform: translateY(-2px);
 }
 
 .hanse-launch:active {
-        background: rgba(99, 60, 30, 0.846);
+    background: linear-gradient(180deg, rgba(77, 45, 20, 0.98) 0%, rgba(45, 22, 10, 1) 100%);
+    transform: translateY(1px);
+
+}
+
+@media (max-width: 760px) {
+    #intro::after,
+    #loading-screen::after {
+        inset: 10px;
+        border-radius: 12px;
+    }
+
+    .start-content {
+        width: calc(100vw - 24px);
+        padding: 1.25rem 1rem 1.4rem;
+        gap: .7rem;
+    }
+
+    .start-content::before {
+        font-size: .68rem;
+        letter-spacing: .22em;
+    }
+
+    .start-title {
+        padding-bottom: .95rem;
+    }
+
+    .start-era {
+        font-size: .8rem;
+        letter-spacing: .12em;
+    }
+
+    .hanse-launch {
+        width: 100%;
+        padding: .95rem 1.2rem;
+        font-size: .94rem;
+        letter-spacing: .18em;
+    }
+
+    .start-actions {
+        width: 100%;
+    }
 
 }
 
 /* ── Cinematic Intro Sequence ──────────────────────────── */
 
 #intro-seq {
-    background: url("../assets/images/intro_background.webp") center/cover no-repeat;
+    background-image:
+        radial-gradient(circle at 50% 18%, rgba(240, 200, 120, 0.18) 0%, rgba(240, 200, 120, 0) 34%),
+        linear-gradient(180deg, rgba(10, 8, 7, 0.18) 0%, rgba(10, 8, 7, 0.56) 100%),
+        url("../assets/images/intro_background.webp");
+    background-position: center, center, center;
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    background-size: auto, auto, 100%;
+    animation: intro-bg-zoom 40s ease-in forwards;
+    flex-direction: column;
+    overflow: hidden;
     z-index: 100;
     user-select: none;
 }
 
+@keyframes intro-bg-zoom {
+    from {
+        background-size: auto, auto, 100%;
+    }
+
+    to {
+        background-size: auto, auto, 125%;
+    }
+}
+
+#intro-seq::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(9, 7, 6, 0.619) 0%, rgba(9, 7, 6, 0.116) 28%, rgba(9, 7, 6, 0.18) 72%, rgba(9, 7, 6, 0.613) 100%),
+        linear-gradient(180deg, rgba(9, 7, 6, 0.52) 0%, rgba(9, 7, 6, 0.075) 22%, rgba(9, 7, 6, 0.275) 100%);
+    pointer-events: none;
+}
+
+#intro-seq::after {
+    content: "";
+    position: absolute;
+    inset: 16px;
+    border: 1px solid rgba(240, 200, 120, 0.18);
+    border-radius: 18px;
+    pointer-events: none;
+}
+
 .intro-captions-container {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 0.5em;
     min-height: 3.5em;
+    width: min(900px, calc(100vw - 40px));
+    padding: 2rem 2rem 2.3rem;
+    border-radius: 18px;
 }
 
 .intro-caption {
@@ -189,8 +369,11 @@ body {
     font-size: 2em;
     line-height: 1.75;
     letter-spacing: 0.03em;
-    color: rgba(255, 255, 255, 0.9);
+    color: #f3d7ab;
     font-family: Georgia, "Times New Roman", serif;
+    text-shadow:
+        0 0 8px rgba(92, 61, 21, 0.28),
+        0 0 24px rgba(21, 11, 5, 0.36);
     opacity: 0;
     white-space: pre-line;
     padding: 0 2rem;
@@ -198,20 +381,56 @@ body {
 
 .intro-skip {
     position: absolute;
+    z-index: 1;
     top: 24px;
     right: 32px;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.35);
+    background: linear-gradient(180deg, rgba(53, 31, 20, 0.88) 0%, rgba(30, 16, 9, 0.94) 100%);
+    border: 1px solid rgba(62, 39, 28, 0.88);
+    border-radius: 0.75rem;
+    color: rgba(247, 227, 188, 0.78);
     font-size: 0.72rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    padding: 6px 18px;
+    padding: 8px 18px;
     cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
+    font-family: "Baskervville", Georgia, 'Times New Roman', Times, serif;
+    font-weight: 700;
+    transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    box-shadow:
+        0 12px 24px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 236, 196, 0.08);
 }
 
 .intro-skip:hover {
-    color: rgba(255, 255, 255, 0.75);
-    border-color: rgba(255, 255, 255, 0.45);
+    color: #f0c878;
+    border-color: rgba(228, 184, 131, 0.8);
+    background: linear-gradient(180deg, rgba(72, 42, 26, 0.94) 0%, rgba(39, 21, 12, 0.98) 100%);
+    box-shadow:
+        0 16px 28px rgba(0, 0, 0, 0.26),
+        0 0 22px rgba(59, 29, 3, 0.2);
+}
+
+@media (max-width: 760px) {
+    #intro-seq::after {
+        inset: 10px;
+        border-radius: 12px;
+    }
+
+    .intro-captions-container {
+        width: calc(100vw - 24px);
+        padding: 1.25rem 1rem 1.4rem;
+    }
+
+    .intro-caption {
+        font-size: clamp(1.2rem, 5.8vw, 1.6rem);
+        padding: 0;
+    }
+
+    .intro-skip {
+        top: 18px;
+        right: 18px;
+        padding: 7px 14px;
+        font-size: 0.66rem;
+        letter-spacing: 0.14em;
+    }
 }

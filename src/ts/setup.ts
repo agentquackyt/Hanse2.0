@@ -3,16 +3,20 @@ import { Entity } from "./ecs/Entity";
 import {
     Position, Name, City, Ship, Gold, Inventory,
     Market, PlayerControlled, CityProduction,
-    IsPlayerOwned, Kontor,
+    IsPlayerOwned, Kontor, Merchant,
     type TradeGood, type MarketEntry,
 } from "./gameplay/components";
 import { HUDcontroller } from "./render/HUDcontroller";
-import { MovementSystem, MarketSystem, TradeSystem } from "./gameplay/systems";
+import { GameTimeSystem, MovementSystem, MarketSystem, TradeSystem } from "./gameplay/systems";
 import { MapRenderSystem } from "./render/RenderSystem";
 import { loadMapData } from "./navigation/MapData";
 import { NavigationGraph } from "./navigation/Graph";
 import { GoodsRegistry } from "./gameplay/GoodsRegistry";
 import { SpriteManager } from "./render/SpriteManager";
+import { GameTime } from "./gameplay/GameTime";
+import { TravelRoute } from "./gameplay/components";
+import type { SaveGameData } from "./persistence/SaveGameManager";
+import { SaveGameManager } from "./persistence/SaveGameManager";
 
 interface CitiesJson {
     production: Record<string, Record<string, number>>;
@@ -28,15 +32,17 @@ const world  = engine.world;
 const renderSystem = new MapRenderSystem(canvas);
 
 world
+    .addTickSystem(new GameTimeSystem())
     .addTickSystem(new MovementSystem())
     .addTickSystem(new MarketSystem())
     .addTickSystem(renderSystem);
 
 export const tradeSystem = new TradeSystem();
+export { renderSystem };
 tradeSystem.world = world;
 
 /** Initialise the game world from JSON data files. Must be awaited before engine.start(). */
-export async function initWorld(): Promise<void> {
+export async function initWorld(saveGame: SaveGameData | null = null): Promise<void> {
     // Load all data in parallel.
     const [mapData, registry, citiesRes] = await Promise.all([
         loadMapData(),
@@ -57,14 +63,14 @@ export async function initWorld(): Promise<void> {
 
     // Create harbour entities.
     for (const [name, pos] of Object.entries(mapData.harbour)) {
-        const citizens    = citiesRes.citizens[name] ?? 1_000;
+        const citizens    = citiesRes.citizens[name] ?? 500;
         const prodData    = citiesRes.production[name] ?? {};
         const multipliers = new Map(Object.entries(prodData));
 
         // Build market entries for all known goods (supply starts at 0).
         const marketEntries: [TradeGood, MarketEntry][] = allGoods.map(good => [
             good,
-            { basePrice: good.buyPrice, supply: 0, demandFactor: 1.0 },
+            { basePrice: good.buyPrice, supply: Math.random() * 400, demandFactor: 1.0 },
         ]);
 
         const city = new Entity()
@@ -79,11 +85,18 @@ export async function initWorld(): Promise<void> {
 
     // Player ship starts at Lübeck.
     const startPos = mapData.harbour["Lübeck"]!;
+    const playerCompany = new Entity()
+        .addComponent(new Name("Hanse Trading Company"))
+        .addComponent(new Merchant("Hanse Trading Company"))
+        .addComponent(new IsPlayerOwned(true))
+        .addComponent(new Gold(500));
+    world.addEntity(playerCompany);
+
     const playerShip = new Entity()
         .addComponent(new Position(startPos.x, startPos.y))
         .addComponent(new Name("Adler von Lübeck"))
         .addComponent(new Ship(150, 0.04))
-        .addComponent(new Gold(500))
+        .addComponent(new Gold(0))
         .addComponent(new Inventory())
         .addComponent(new PlayerControlled());
 
@@ -100,6 +113,32 @@ export async function initWorld(): Promise<void> {
     world.addEntity(kontorLuebeck);
 
     HUDcontroller.getInstance().setTradeSystem(tradeSystem);
+    HUDcontroller.getInstance().setPlayerShip(playerShip);
+    HUDcontroller.getInstance().setPlayerCompany(playerCompany);
+
+    if (saveGame) {
+        SaveGameManager.restoreWorld(world, saveGame);
+    }
+
+    const hud = HUDcontroller.getInstance();
+    hud.updateGameTime(GameTime.getInstance().formatHudLabel());
+    hud.notifyDataChange();
+
+    if (playerShip.getComponent(TravelRoute)) {
+        hud.updateOnSeaInfo(playerShip);
+    } else {
+        const shipPos = playerShip.getComponent(Position)!;
+        const currentCity = world.query(City, Position, Name).find(entity => {
+            const cityPos = entity.getComponent(Position)!;
+            return Math.abs(cityPos.x - shipPos.x) < 0.001 && Math.abs(cityPos.y - shipPos.y) < 0.001;
+        });
+
+        hud.setOnSeaState(false);
+        hud.updateCityInfo(
+            currentCity?.getComponent(Name)?.value ?? "Lübeck",
+            currentCity?.getComponent(City)?.population ?? citiesRes.citizens["Lübeck"] ?? 500,
+        );
+    }
 }
 
 export default engine;

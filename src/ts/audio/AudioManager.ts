@@ -102,6 +102,14 @@ export class AudioManager {
         });
     }
 
+    stop(id: SoundId): void {
+        const el = this._elements.get(id);
+        if (!el) return;
+
+        el.pause();
+        el.currentTime = 0;
+    }
+
     /** @param value 0–1 */
     setMasterVolume(value: number): void {
         this._masterVolume = Math.max(0, Math.min(1, value));

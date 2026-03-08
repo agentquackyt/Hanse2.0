@@ -3,10 +3,14 @@ import { Position, Name, City, Ship, TravelRoute, PlayerControlled, Market, Navi
 import type { NavigationGraph } from "../navigation/Graph";
 import type { Entity } from "../ecs/Entity";
 import { HUDcontroller } from "./HUDcontroller";
+import { getPreloadedImage, loadImageAsset } from "../boot/AssetPreloader";
 
 const MIN_ZOOM = 1.0;
 const MAX_ZOOM = 3.0;
 const SMOOTH_SAMPLES = 6;
+const WORLD_MAP_URL = "/assets/images/world_map.svg";
+const BACKGROUND_TEXTURE_URL = "/assets/images/texture_background.webp";
+const SHIP_SPRITE_URL = "/assets/images/ship.svg";
 
 interface Pt { readonly x: number; readonly y: number }
 
@@ -68,15 +72,24 @@ export class MapRenderSystem extends TickSystem {
         if (!ctx) throw new Error("Could not get 2D rendering context from canvas.");
         this._ctx    = ctx;
         this._canvas = canvas;
-        this._worldMapImage = new Image();
-        this._worldMapImage.src = "/assets/images/world_map_2.svg";
+        this._worldMapImage = getPreloadedImage(WORLD_MAP_URL);
+        this._backgroundImage = getPreloadedImage(BACKGROUND_TEXTURE_URL);
+        this._shipImage = getPreloadedImage(SHIP_SPRITE_URL);
 
-        this._backgroundImage = new Image();
-        this._backgroundImage.src = "/assets/images/texture_background.webp";
-
-        this._shipImage = new Image();
-        this._shipImage.src = "/assets/images/ship.svg";
+        void loadImageAsset(WORLD_MAP_URL).then((img) => {
+            this._worldMapImage = img;
+        });
+        void loadImageAsset(BACKGROUND_TEXTURE_URL).then((img) => {
+            this._backgroundImage = img;
+        });
+        void loadImageAsset(SHIP_SPRITE_URL).then((img) => {
+            this._shipImage = img;
+        });
         this._bindInputEvents();
+    }
+
+    renderOnce(): void {
+        this.update(0);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -377,7 +390,6 @@ export class MapRenderSystem extends TickSystem {
         for (const entity of this.world.query(Position, City)) {
             const pos    = entity.getComponent(Position)!;
             const name   = entity.getComponent(Name);
-            const market = entity.getComponent(Market);
 
             // Check if any docked ship is at this city.
             const hasDocked = dockedPositions.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 0.01);
@@ -386,25 +398,51 @@ export class MapRenderSystem extends TickSystem {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-            // City dot
+            const outerRadius = this._zoom > 1.5 ? 11 : 8.5;
+            const innerRadius = this._zoom > 1.5 ? 6.5 : 5;
+            const coreRadius = this._zoom > 1.5 ? 3.1 : 2.4;
+
+            // Outer glow
             ctx.beginPath();
-            if(this._zoom > 1.5) {
-                ctx.arc(sx, sy, 10, 0, Math.PI * 2);
-            } else {
-                ctx.arc(sx, sy, 8, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = hasDocked ? "#5aafff" : "#ffdeca";
+            ctx.arc(sx, sy, outerRadius + 3, 0, Math.PI * 2);
+            ctx.fillStyle = hasDocked ? "rgba(233, 98, 98, 0.18)" : "rgba(240, 200, 120, 0.14)";
             ctx.fill();
-            ctx.strokeStyle = hasDocked ? "#0053a0" : "#ae8871";
-            ctx.lineWidth = 3;
+
+            // Bronze outer medallion
+            ctx.beginPath();
+            ctx.arc(sx, sy, outerRadius, 0, Math.PI * 2);
+            const outerGradient = ctx.createRadialGradient(sx - 2, sy - 3, 1, sx, sy, outerRadius);
+            outerGradient.addColorStop(0, hasDocked ? "#e4acac" : "#dcb98a");
+            outerGradient.addColorStop(0.55, hasDocked ? "#b84f4f" : "#a8784b");
+            outerGradient.addColorStop(1, "#8f6741");
+            ctx.fillStyle = outerGradient;
+            ctx.fill();
+            ctx.strokeStyle = "#e0b87f";
+            ctx.lineWidth = 2;
             ctx.stroke();
+
+            // Inner plate
+            ctx.beginPath();
+            ctx.arc(sx, sy, innerRadius, 0, Math.PI * 2);
+            const innerGradient = ctx.createRadialGradient(sx - 1, sy - 2, 1, sx, sy, innerRadius);
+            innerGradient.addColorStop(0, hasDocked ? "#ffb1b1" : "#f3d7ab");
+            innerGradient.addColorStop(1, hasDocked ? "#ac4646" : "#7a4d2d");
+            ctx.fillStyle = innerGradient;
+            ctx.fill();
+
+            // Core marker for active/docked city emphasis.
+            ctx.beginPath();
+            ctx.arc(sx, sy, coreRadius, 0, Math.PI * 2);
+            ctx.fillStyle = hasDocked ? "#7c2424" : "#7a4d2d";
+            ctx.fill();
+
 
             // Label
             if (name && this._zoom > 2) {
-                ctx.font = "bold 15px sans-serif";
-                ctx.fillStyle = "#ffdeca";
-                ctx.shadowColor = "#1c0d007a";
-                ctx.shadowBlur = 4;
+                ctx.font = '600 15px "Baskervville", serif';
+                ctx.fillStyle = "#f3d7ab";
+                ctx.shadowColor = "rgba(28, 13, 0, 0.85)";
+                ctx.shadowBlur = 6;
                 // center the label below the city dot
                 const textWidth = ctx.measureText(name.value).width;
                 ctx.fillText(name.value, sx - textWidth / 2, sy + 28);
@@ -418,8 +456,8 @@ export class MapRenderSystem extends TickSystem {
 
     private _drawShips(): void {
         const ctx = this._ctx;
-        const SHIP_W = 40;
-        const SHIP_H = 36;
+        const SHIP_W = 40/3*2;
+        const SHIP_H = 36/3*2;
         for (const entity of this.world.query(Position, Ship)) {
             const pos = entity.getComponent(Position)!;
             const isPlayer = entity.hasComponent(PlayerControlled);
@@ -438,7 +476,12 @@ export class MapRenderSystem extends TickSystem {
             ctx.setTransform(flipX, 0, 0, 1, sx, sy);
 
             if (this._shipImage?.complete && this._shipImage.naturalWidth > 0) {
-                ctx.drawImage(this._shipImage, -SHIP_W / 2, -SHIP_H / 2, SHIP_W, SHIP_H);
+                // 1,5x scaled up for maxium zoom 
+                let zoomMultiplier = this._zoom > 2 ? 1.5 : 1;
+                let width = SHIP_W * zoomMultiplier;
+                let height = SHIP_H * zoomMultiplier;
+
+                ctx.drawImage(this._shipImage,  -width / 2, -height / 2, width, height);
             } else {
                 // Fallback triangle while the image loads.
                 ctx.beginPath();
