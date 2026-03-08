@@ -45,6 +45,7 @@ function smoothPath(pts: readonly Pt[], samples = SMOOTH_SAMPLES): Pt[] {
 export class MapRenderSystem extends TickSystem {
     private readonly _ctx: CanvasRenderingContext2D;
     private readonly _canvas: HTMLCanvasElement;
+    private _worldMapImage: HTMLImageElement | null = null;
     private _backgroundImage: HTMLImageElement | null = null;
 
     /** Set after map data is loaded so the click handler can route ships. */
@@ -66,8 +67,11 @@ export class MapRenderSystem extends TickSystem {
         if (!ctx) throw new Error("Could not get 2D rendering context from canvas.");
         this._ctx    = ctx;
         this._canvas = canvas;
+        this._worldMapImage = new Image();
+        this._worldMapImage.src = "/assets/images/world_map.svg";
+
         this._backgroundImage = new Image();
-        this._backgroundImage.src = "/assets/images/_world_map.png";
+        this._backgroundImage.src = "/assets/images/texture_background.webp";
         this._bindInputEvents();
     }
 
@@ -258,11 +262,14 @@ export class MapRenderSystem extends TickSystem {
 
     private _drawBackground(): void {
         const ctx = this._ctx;
-        if (this._backgroundImage && this._backgroundImage.complete) {
+        if (this._backgroundImage?.complete) {
             ctx.drawImage(this._backgroundImage, 0, 0, 1, 1);
         } else {
-            ctx.fillStyle = "#210d00";
+            ctx.fillStyle = "#1d0c00";
             ctx.fillRect(0, 0, 1, 1);
+        }
+        if (this._worldMapImage?.complete) {
+            ctx.drawImage(this._worldMapImage, 0, 0, 1, 1);
         }
     }
 
