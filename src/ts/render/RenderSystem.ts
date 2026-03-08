@@ -1,5 +1,5 @@
 import { TickSystem } from "../ecs/System";
-import { Position, Name, City, Ship, TravelRoute, PlayerControlled, Market, NavigationPath } from "../gameplay/components";
+import { Position, Name, City, Ship, TravelRoute, PlayerControlled, Market, NavigationPath, Kontor, IsPlayerOwned } from "../gameplay/components";
 import type { NavigationGraph } from "../navigation/Graph";
 import type { Entity } from "../ecs/Entity";
 import { HUDcontroller } from "./HUDcontroller";
@@ -47,6 +47,7 @@ export class MapRenderSystem extends TickSystem {
     private readonly _canvas: HTMLCanvasElement;
     private _worldMapImage: HTMLImageElement | null = null;
     private _backgroundImage: HTMLImageElement | null = null;
+    private _shipImage: HTMLImageElement | null = null;
 
     /** Set after map data is loaded so the click handler can route ships. */
     graph: NavigationGraph | null = null;
@@ -68,10 +69,13 @@ export class MapRenderSystem extends TickSystem {
         this._ctx    = ctx;
         this._canvas = canvas;
         this._worldMapImage = new Image();
-        this._worldMapImage.src = "/assets/images/world_map.svg";
+        this._worldMapImage.src = "/assets/images/world_map_2.svg";
 
         this._backgroundImage = new Image();
         this._backgroundImage.src = "/assets/images/texture_background.webp";
+
+        this._shipImage = new Image();
+        this._shipImage.src = "/assets/images/ship.svg";
         this._bindInputEvents();
     }
 
@@ -163,12 +167,16 @@ export class MapRenderSystem extends TickSystem {
         // Suppress the browser right-click context menu on the canvas.
         canvas.addEventListener("contextmenu", (e: Event) => e.preventDefault());
 
-        // ---- Left click: navigate player ship to clicked harbour ----
+        // ---- Left click: Shift+click navigates ship, plain click opens city modal ----
         canvas.addEventListener("click", (e: MouseEvent) => {
             if (e.button !== 0) return;
             const rect = canvas.getBoundingClientRect();
             const { wx, wy } = this._screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-            this._handleCityClick(wx, wy);
+            if (e.shiftKey) {
+                this._handleShipMovement(wx, wy);
+            } else {
+                this._handleCityModalClick(wx, wy);
+            }
         });
 
         canvas.style.cursor = "grab";
@@ -176,7 +184,51 @@ export class MapRenderSystem extends TickSystem {
 
     // ------------------------------------------------------------------ click → travel
 
-    private _handleCityClick(wx: number, wy: number): void {
+    /** Open the city overview modal if the player has access (docked ship or kontor). */
+    private _handleCityModalClick(wx: number, wy: number): void {
+        const CLICK_RADIUS = 0.025;
+        let clickedCity: Entity | null = null;
+        let bestDist = Infinity;
+        for (const entity of this.world.query(Position, City)) {
+            const pos = entity.getComponent(Position)!;
+            const d = Math.hypot(pos.x - wx, pos.y - wy);
+            if (d < bestDist && d < CLICK_RADIUS) {
+                bestDist = d;
+                clickedCity = entity;
+            }
+        }
+        if (!clickedCity) return;
+
+        const cityPos = clickedCity.getComponent(Position)!;
+
+        // Access check A — player ship docked at this city (no active route).
+        let playerShip: Entity | null = null;
+        for (const ship of this.world.query(Position, Ship, PlayerControlled)) {
+            if (ship.hasComponent(TravelRoute) || ship.hasComponent(NavigationPath)) continue;
+            const sp = ship.getComponent(Position)!;
+            if (Math.hypot(sp.x - cityPos.x, sp.y - cityPos.y) < 0.01) {
+                playerShip = ship;
+                break;
+            }
+        }
+
+        // Access check B — player-owned kontor at this city.
+        let kontorEntity: Entity | null = null;
+        for (const k of this.world.query(Position, Kontor, IsPlayerOwned)) {
+            const kp = k.getComponent(Position)!;
+            if (Math.hypot(kp.x - cityPos.x, kp.y - cityPos.y) < 0.01) {
+                kontorEntity = k;
+                break;
+            }
+        }
+
+        if (!playerShip && !kontorEntity) return;
+
+        HUDcontroller.getInstance().createCityOverviewModal(clickedCity, playerShip, kontorEntity);
+    }
+
+    /** Shift+click: navigate the player ship to the clicked harbour. */
+    private _handleShipMovement(wx: number, wy: number): void {
         const graph = this.graph;
         if (!graph) return;
 
@@ -313,10 +365,22 @@ export class MapRenderSystem extends TickSystem {
 
     private _drawCities(): void {
         const ctx = this._ctx;
+        // Collect positions of all docked ships (no route, no nav path).
+        const dockedPositions: Array<{ x: number; y: number }> = [];
+        for (const ship of this.world.query(Position, Ship)) {
+            if (!ship.hasComponent(TravelRoute) && !ship.hasComponent(NavigationPath)) {
+                const p = ship.getComponent(Position)!;
+                dockedPositions.push({ x: p.x, y: p.y });
+            }
+        }
+
         for (const entity of this.world.query(Position, City)) {
             const pos    = entity.getComponent(Position)!;
             const name   = entity.getComponent(Name);
             const market = entity.getComponent(Market);
+
+            // Check if any docked ship is at this city.
+            const hasDocked = dockedPositions.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 0.01);
 
             const { sx, sy } = this._worldToScreen(pos.x, pos.y);
             ctx.save();
@@ -329,9 +393,9 @@ export class MapRenderSystem extends TickSystem {
             } else {
                 ctx.arc(sx, sy, 8, 0, Math.PI * 2);
             }
-            ctx.fillStyle = "#ffdeca";
+            ctx.fillStyle = hasDocked ? "#5aafff" : "#ffdeca";
             ctx.fill();
-            ctx.strokeStyle = "#ae8871";
+            ctx.strokeStyle = hasDocked ? "#0053a0" : "#ae8871";
             ctx.lineWidth = 3;
             ctx.stroke();
 
@@ -354,49 +418,52 @@ export class MapRenderSystem extends TickSystem {
 
     private _drawShips(): void {
         const ctx = this._ctx;
-        const w   = this._canvas.width;
-        const h   = this._canvas.height;
+        const SHIP_W = 40;
+        const SHIP_H = 36;
         for (const entity of this.world.query(Position, Ship)) {
             const pos = entity.getComponent(Position)!;
             const isPlayer = entity.hasComponent(PlayerControlled);
             const route = entity.getComponent(TravelRoute);
+            const navPath = entity.getComponent(NavigationPath);
 
-            // Compute angle in screen space so the ship points the right way
-            // even when the canvas aspect ratio causes non-uniform world scaling.
-            let angle = -Math.PI / 2;
-            if (route) {
-                const dx = (route.destination.x - route.origin.x) * w;
-                const dy = (route.destination.y - route.origin.y) * h;
-                if (dx !== 0 || dy !== 0) angle = Math.atan2(dy, dx) - Math.PI / 2;
-            }
+            // Don't render the ship while it's docked (no active route or path).
+            if (!route && !navPath) continue;
+
+            // Flip horizontally when the ship is moving in the positive-x direction.
+            const dx = route ? route.destination.x - route.origin.x : 0;
+            const flipX = dx > 0 ? 1 : -1;
 
             const { sx, sy } = this._worldToScreen(pos.x, pos.y);
             ctx.save();
-            ctx.setTransform(1, 0, 0, 1, sx, sy);
-            ctx.rotate(angle);
+            ctx.setTransform(flipX, 0, 0, 1, sx, sy);
 
-            ctx.beginPath();
-            ctx.moveTo(0, -9);
-            ctx.lineTo(6, 7);
-            ctx.lineTo(-6, 7);
-            ctx.closePath();
-            ctx.fillStyle = isPlayer ? "#5aafff" : "#ffaa44";
-            ctx.fill();
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            if (this._shipImage?.complete && this._shipImage.naturalWidth > 0) {
+                ctx.drawImage(this._shipImage, -SHIP_W / 2, -SHIP_H / 2, SHIP_W, SHIP_H);
+            } else {
+                // Fallback triangle while the image loads.
+                ctx.beginPath();
+                ctx.moveTo(0, -9);
+                ctx.lineTo(6, 7);
+                ctx.lineTo(-6, 7);
+                ctx.closePath();
+                ctx.fillStyle = isPlayer ? "#5aafff" : "#ffaa44";
+                ctx.fill();
+                ctx.strokeStyle = "#fff";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
 
             ctx.restore();
 
             const name = entity.getComponent(Name);
-            if (name && this._zoom > 2) {
+            if (name && this._zoom > 2.5) {
                 ctx.save();
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
                 ctx.font = "14px sans-serif";
                 ctx.fillStyle = isPlayer ? "#8dcfff" : "#ffcc88";
                 ctx.shadowColor = "#000";
                 ctx.shadowBlur = 3;
-                ctx.fillText(name.value, sx + 12, sy - 4);
+                ctx.fillText(name.value, sx + 30, sy+10);
                 ctx.shadowBlur = 0;
                 ctx.restore();
             }

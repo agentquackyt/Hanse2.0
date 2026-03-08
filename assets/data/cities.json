@@ -1,0 +1,137 @@
+{
+  "production": {
+    "Hamburg": {
+      "Beer": 3,
+      "Grain": 1,
+      "Bricks": 3
+    },
+    "Lübeck": {
+      "Beer": 3,
+      "Grain": 1,
+      "Salt": 3,
+      "Bricks": 3
+    },
+    "Riga": {
+      "Furs": 3,
+      "Honey": 3,
+      "Wood": 3,
+      "Grain": 1
+    },
+    "Danzig": {
+      "Beer": 3,
+      "Grain": 1,
+      "Wood": 3,
+      "Bricks": 3
+    },
+    "Rostock": {
+      "Beer": 3,
+      "Grain": 1,
+      "Hemp": 2,
+      "Bricks": 3
+    },
+    "Kopenhaven": {
+      "Meat": 3,
+      "Grain": 1,
+      "Stockfish": 3
+    },
+    "Göteborg": {
+      "Metal": 1,
+      "Wood": 3,
+      "Stockfish": 3
+    },
+    "Oslo": {
+      "Meat": 3,
+      "Wood": 3,
+      "Stockfish": 3
+    },
+    "Visby": {
+      "Meat": 3,
+      "Honey": 3,
+      "Stockfish": 3
+    },
+    "Stockholm": {
+      "Metal": 1,
+      "Wood": 3,
+      "Stockfish": 3
+    },
+    "Stavanger": {
+      "Meat": 3,
+      "Wood": 3,
+      "Stockfish": 3
+    },
+    "Bergen": {
+      "Furs": 3,
+      "Wood": 3,
+      "Stockfish": 3
+    },
+    "Edinburgh": {
+      "Meat": 3,
+      "Grain": 1,
+      "Wool": 3
+    },
+    "London": {
+      "Cloth": 6,
+      "Hemp": 2,
+      "Wool": 3
+    },
+    "Bremerhaven": {
+      "Beer": 3,
+      "Grain": 1,
+      "Wood": 3
+    },
+    "Groningen": {
+      "Beer": 3,
+      "Grain": 1,
+      "Stockfish": 3
+    },
+    "Brügge": {
+      "Cloth": 6,
+      "Meat": 3,
+      "Wine": 1,
+      "Spices": 0.5
+    },
+    "Aalborg": {
+      "Meat": 3,
+      "Grain": 1,
+      "Stockfish": 3
+    },
+    "Stettin": {
+      "Beer": 3,
+      "Grain": 1,
+      "Stockfish": 3
+    },
+    "Reval": {
+      "Furs": 3,
+      "Honey": 3,
+      "Grain": 1
+    },
+    "Malmö": {
+      "Meat": 3,
+      "Wool": 3,
+      "Stockfish": 3
+    }
+  },
+  "citizens": {
+    "Hamburg": 5000,
+    "Lübeck": 4000,
+    "Riga": 3000,
+    "Danzig": 3000,
+    "Rostock": 2000,
+    "Kopenhaven": 2000,
+    "Göteborg": 1000,
+    "Oslo": 1000,
+    "Visby": 1000,
+    "Stockholm": 1000,
+    "Stavanger": 1000,
+    "Bergen": 1000,
+    "Edinburgh": 2000,
+    "London": 5000,
+    "Bremerhaven": 1000,
+    "Groningen": 1000,
+    "Brügge": 2000,
+    "Aalborg": 1000,
+    "Stettin": 1000,
+    "Reval": 1000,
+    "Malmö": 1000
+   }
+}

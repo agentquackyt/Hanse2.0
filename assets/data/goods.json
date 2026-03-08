@@ -1,0 +1,231 @@
+{
+  "goods": [
+    {
+      "name": "Beer",
+      "img": "bier.png",
+      "PP": 75,
+      "BP": 90,
+      "SP": 135,
+      "base_demand": 9
+    },
+    {
+      "name": "Furs",
+      "img": "fell.png",
+      "PP": 300,
+      "BP": 360,
+      "SP": 540,
+      "base_demand": 2
+    },
+    {
+      "name": "Meat",
+      "img": "fleisch.png",
+      "PP": 288,
+      "BP": 346,
+      "SP": 518,
+      "base_demand": 5
+    },
+    {
+      "name": "Grain",
+      "img": "getreide.png",
+      "PP": 33,
+      "BP": 40,
+      "SP": 59,
+      "base_demand": 10
+    },
+    {
+      "name": "Spices",
+      "img": "gewuerze.png",
+      "PP": null,
+      "BP": 600,
+      "SP": 900,
+      "base_demand": 1
+    },
+    {
+      "name": "Hemp",
+      "img": "hanf.png",
+      "PP": 33,
+      "BP": 40,
+      "SP": 59,
+      "base_demand": 0
+    },
+    {
+      "name": "Wood",
+      "img": "holz.png",
+      "PP": 33,
+      "BP": 40,
+      "SP": 59,
+      "base_demand": 8
+    },
+    {
+      "name": "Honey",
+      "img": "honig.png",
+      "PP": 50,
+      "BP": 60,
+      "SP": 90,
+      "base_demand": 4
+    },
+    {
+      "name": "Cheese",
+      "img": "kaese.png",
+      "PP": 100,
+      "BP": 120,
+      "SP": 180,
+      "base_demand": 6
+    },
+    {
+      "name": "Clothing",
+      "img": "kleidung.png",
+      "PP": 350,
+      "BP": 420,
+      "SP": 630,
+      "base_demand": 3
+    },
+    {
+      "name": "Mead",
+      "img": "met.png",
+      "PP": 150,
+      "BP": 180,
+      "SP": 270,
+      "base_demand": 2
+    },
+    {
+      "name": "Metal",
+      "img": "metall.png",
+      "PP": 50,
+      "BP": 60,
+      "SP": 90,
+      "base_demand": 0
+    },
+    {
+      "name": "Metal Goods",
+      "img": "metallwaren.png",
+      "PP": 167,
+      "BP": 200,
+      "SP": 301,
+      "base_demand": 4
+    },
+    {
+      "name": "Pitch",
+      "img": "pech.png",
+      "PP": 117,
+      "BP": 140,
+      "SP": 211,
+      "base_demand": 0
+    },
+    {
+      "name": "Salt",
+      "img": "salz.png",
+      "PP": 58,
+      "BP": 70,
+      "SP": 104,
+      "base_demand": 7
+    },
+    {
+      "name": "Stockfish",
+      "img": "stockfisch.png",
+      "PP": 129,
+      "BP": 155,
+      "SP": 232,
+      "base_demand": 9
+    },
+    {
+      "name": "Cloth",
+      "img": "tuch.png",
+      "PP": 150,
+      "BP": 180,
+      "SP": 270,
+      "base_demand": 5
+    },
+    {
+      "name": "Wine",
+      "img": "wein.png",
+      "PP": 400,
+      "BP": 480,
+      "SP": 720,
+      "base_demand": 2
+    },
+    {
+      "name": "Wool",
+      "img": "woll.png",
+      "PP": 50,
+      "BP": 60,
+      "SP": 90,
+      "base_demand": 0
+    },
+    {
+      "name": "Bricks",
+      "img": "ziegel.png",
+      "PP": 33,
+      "BP": 40,
+      "SP": 59,
+      "base_demand": 0
+    }
+  ],
+  "recipes": [
+    {
+      "product": "Beer",
+      "ingredients": {
+        "Grain": 1,
+        "Wood": 1
+      }
+    },
+    {
+      "product": "Meat",
+      "ingredients": {
+        "Grain": 1,
+        "Salt": 1
+      }
+    },
+    {
+      "product": "Metal Goods",
+      "ingredients": {
+        "Metal": 1,
+        "Wood": 1
+      }
+    },
+    {
+      "product": "Furs",
+      "ingredients": {
+        "Metal Goods": 1,
+        "Hemp": 1
+      }
+    },
+    {
+      "product": "Cloth",
+      "ingredients": {
+        "Wool": 1
+      }
+    },
+    {
+      "product": "Clothing",
+      "ingredients": {
+        "Cloth": 1
+      }
+    },
+    {
+      "product": "Stockfish",
+      "ingredients": {
+        "Salt": 1,
+        "Hemp": 1
+      }
+    },
+    {
+      "product": "Salt",
+      "ingredients": {
+        "Wood": 1
+      }
+    },
+    {
+      "product": "Bricks",
+      "ingredients": {
+        "Wood": 1
+      }
+    },
+    {
+      "product": "Mead",
+      "ingredients": {
+        "Honey": 1
+      }
+    }
+  ]
+}
