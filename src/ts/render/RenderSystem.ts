@@ -11,6 +11,7 @@ const SMOOTH_SAMPLES = 6;
 const WORLD_MAP_URL = "/assets/images/world_map.svg";
 const BACKGROUND_TEXTURE_URL = "/assets/images/texture_background.webp";
 const SHIP_SPRITE_URL = "/assets/images/ship.svg";
+const DEFAULT_MAP_ASPECT_RATIO = 196.45584 / 111.70967;
 
 interface Pt { readonly x: number; readonly y: number }
 
@@ -65,6 +66,7 @@ export class MapRenderSystem extends TickSystem {
     private _isDragging = false;
     private _dragLastX = 0;
     private _dragLastY = 0;
+    private _hasInitialized = false;
 
     constructor(canvas: HTMLCanvasElement) {
         super();
@@ -94,37 +96,65 @@ export class MapRenderSystem extends TickSystem {
 
     // ------------------------------------------------------------------ helpers
 
+    private _getMapAspectRatio(): number {
+        if (this._worldMapImage?.naturalWidth && this._worldMapImage.naturalHeight) {
+            return this._worldMapImage.naturalWidth / this._worldMapImage.naturalHeight;
+        }
+        return DEFAULT_MAP_ASPECT_RATIO;
+    }
+
+    /**
+     * Compute per-axis pixel scales so the map *covers* the full canvas
+     * without shearing (like CSS background-size: cover).
+     * scaleX / scaleY always equals the map's aspect ratio.
+     */
+    private _getBaseScale(): { scaleX: number; scaleY: number } {
+        const ar = this._getMapAspectRatio();
+        const w  = this._canvas.width;
+        const h  = this._canvas.height;
+        const scaleX = Math.max(w, h * ar);
+        const scaleY = scaleX / ar;
+        return { scaleX, scaleY };
+    }
+
     /** Convert a screen-pixel position to normalised world coords. */
     private _screenToWorld(sx: number, sy: number): { wx: number; wy: number } {
-        const w = this._canvas.width;
-        const h = this._canvas.height;
-        const wx = sx / (this._zoom * w) + this._offsetX;
-        const wy = sy / (this._zoom * h) + this._offsetY;
-        return { wx, wy };
+        const { scaleX, scaleY } = this._getBaseScale();
+        return {
+            wx: sx / (this._zoom * scaleX) + this._offsetX,
+            wy: sy / (this._zoom * scaleY) + this._offsetY,
+        };
     }
 
     /** Convert a normalised world position to screen pixels. */
     private _worldToScreen(wx: number, wy: number): { sx: number; sy: number } {
-        const w = this._canvas.width;
-        const h = this._canvas.height;
+        const { scaleX, scaleY } = this._getBaseScale();
         return {
-            sx: (wx - this._offsetX) * this._zoom * w,
-            sy: (wy - this._offsetY) * this._zoom * h,
+            sx: (wx - this._offsetX) * this._zoom * scaleX,
+            sy: (wy - this._offsetY) * this._zoom * scaleY,
         };
     }
 
     /** Pixels-per-world-unit for line/dash sizing (uniform, based on shorter axis). */
     private _scale(): number {
-        return this._zoom * Math.min(this._canvas.width, this._canvas.height);
+        const { scaleX, scaleY } = this._getBaseScale();
+        return this._zoom * Math.min(scaleX, scaleY);
     }
 
     // ------------------------------------------------------------------ camera
 
     private _clampOffset(): void {
-        const maxX = 1 - 1 / this._zoom;
-        const maxY = 1 - 1 / this._zoom;
+        const { scaleX, scaleY } = this._getBaseScale();
+        const maxX = Math.max(0, 1 - this._canvas.width  / (this._zoom * scaleX));
+        const maxY = Math.max(0, 1 - this._canvas.height / (this._zoom * scaleY));
         this._offsetX = Math.max(0, Math.min(this._offsetX, maxX));
         this._offsetY = Math.max(0, Math.min(this._offsetY, maxY));
+    }
+
+    private _centerOffset(): void {
+        const { scaleX, scaleY } = this._getBaseScale();
+        this._offsetX = Math.max(0, 1 - this._canvas.width  / (this._zoom * scaleX)) / 2;
+        this._offsetY = Math.max(0, 1 - this._canvas.height / (this._zoom * scaleY)) / 2;
     }
 
     // ------------------------------------------------------------------ input
@@ -143,10 +173,10 @@ export class MapRenderSystem extends TickSystem {
             const sx   = e.clientX - rect.left;
             const sy   = e.clientY - rect.top;
             const { wx, wy } = this._screenToWorld(sx, sy);
-
             this._zoom    = newZoom;
-            this._offsetX = wx - sx / (this._zoom * canvas.width);
-            this._offsetY = wy - sy / (this._zoom * canvas.height);
+            const { scaleX, scaleY } = this._getBaseScale();
+            this._offsetX = wx - sx / (this._zoom * scaleX);
+            this._offsetY = wy - sy / (this._zoom * scaleY);
             this._clampOffset();
         }, { passive: false });
 
@@ -161,8 +191,9 @@ export class MapRenderSystem extends TickSystem {
 
         canvas.addEventListener("mousemove", (e: MouseEvent) => {
             if (!this._isDragging) return;
-            this._offsetX -= (e.clientX - this._dragLastX) / (this._zoom * canvas.width);
-            this._offsetY -= (e.clientY - this._dragLastY) / (this._zoom * canvas.height);
+            const { scaleX, scaleY } = this._getBaseScale();
+            this._offsetX -= (e.clientX - this._dragLastX) / (this._zoom * scaleX);
+            this._offsetY -= (e.clientY - this._dragLastY) / (this._zoom * scaleY);
             this._clampOffset();
             this._dragLastX = e.clientX;
             this._dragLastY = e.clientY;
@@ -300,18 +331,23 @@ export class MapRenderSystem extends TickSystem {
     override update(_dt: number): void {
         this._canvas.width  = this._canvas.clientWidth;
         this._canvas.height = this._canvas.clientHeight;
+
+        if (!this._hasInitialized && this._canvas.width > 0 && this._canvas.height > 0) {
+            this._centerOffset();
+            this._hasInitialized = true;
+        }
+
         this._clampOffset();
 
-        const w = this._canvas.width;
-        const h = this._canvas.height;
+        const { scaleX, scaleY } = this._getBaseScale();
 
-        // Camera transform: normalised [0,1] world → screen pixels.
-        // screen_x = (world_x - offsetX) * zoom * canvasWidth
+        // "Cover" camera transform: world [0,1]×[0,1] maps to pixels with a
+        // uniform aspect-ratio-preserving scale that fills the entire canvas.
         this._ctx.setTransform(
-            this._zoom * w, 0,
-            0, this._zoom * h,
-            -this._offsetX * this._zoom * w,
-            -this._offsetY * this._zoom * h,
+            this._zoom * scaleX, 0,
+            0, this._zoom * scaleY,
+            -this._offsetX * this._zoom * scaleX,
+            -this._offsetY * this._zoom * scaleY,
         );
 
         this._drawBackground();
