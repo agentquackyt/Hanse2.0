@@ -1,0 +1,25 @@
+{
+  "production_tick_interval": 10,
+  "base_production": {
+    "Beer": 0.1,
+    "Furs": 0.1,
+    "Meat": 0.1,
+    "Grain": 0.1,
+    "Spices": 0.1,
+    "Hemp": 0.1,
+    "Wood": 0.1,
+    "Honey": 0.1,
+    "Cheese": 0.1,
+    "Clothing": 0.1,
+    "Mead": 0.1,
+    "Metal": 0.1,
+    "Metal Goods": 0.1,
+    "Pitch": 0.1,
+    "Salt": 0.1,
+    "Stockfish": 0.1,
+    "Cloth": 0.1,
+    "Wine": 0.1,
+    "Wool": 0.1,
+    "Bricks": 0.1
+  }
+}

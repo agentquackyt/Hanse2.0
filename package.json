@@ -10,6 +10,7 @@
     "typescript": "^5"
   },
   "scripts": {
-    "dev": "bun run --hot dev.ts"
+    "dev": "bun run --hot dev.ts",
+    "build": "rm -r docs && bun build index.html --outdir docs && cp -r assets docs/assets"
   }
 }

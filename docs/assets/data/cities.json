@@ -1,0 +1,165 @@
+{
+  "production": {
+    "Hamburg": {
+      "Beer": 2,
+      "Salt": 4,
+      "Grain": 2,
+      "Wood": 1,
+      "Pitch": 0.5
+    },
+    "Lübeck": {
+      "Beer": 2,
+      "Salt": 4,
+      "Bricks": 3,
+      "Metal Goods": 1,
+      "Grain": 1,
+      "Wood": 1
+    },
+    "Riga": {
+      "Furs": 1,
+      "Honey": 2,
+      "Mead": 1,
+      "Hemp": 2,
+      "Wood": 3,
+      "Grain": 2
+    },
+    "Danzig": {
+      "Wood": 3,
+      "Grain": 3,
+      "Beer": 1,
+      "Honey": 2,
+      "Pitch": 2,
+      "Bricks": 3
+    },
+    "Rostock": {
+      "Grain": 3,
+      "Bricks": 2,
+      "Salt": 2,
+      "Hemp": 2,
+      "Beer": 1,
+      "Wood": 1
+    },
+    "Kopenhaven": {
+      "Stockfish": 3,
+      "Meat": 3,
+      "Grain": 2,
+      "Salt": 3
+    },
+    "Göteborg": {
+      "Metal": 6,
+      "Metal Goods": 4,
+      "Wood": 4,
+      "Stockfish": 2
+    },
+    "Oslo": {
+      "Wood": 6,
+      "Stockfish": 3,
+      "Furs": 1
+    },
+    "Visby": {
+      "Honey": 3,
+      "Mead": 2,
+      "Stockfish": 3,
+      "Wood": 2
+    },
+    "Stockholm": {
+      "Metal": 6,
+      "Metal Goods": 4,
+      "Pitch": 4,
+      "Wood": 4,
+      "Stockfish": 3
+    },
+    "Stavanger": {
+      "Wood": 6,
+      "Stockfish": 2
+    },
+    "Bergen": {
+      "Furs": 2,
+      "Wood": 6,
+      "Stockfish": 1
+    },
+    "Edinburgh": {
+      "Wool": 4,
+      "Cloth": 2,
+      "Meat": 3,
+      "Grain": 2,
+      "Cheese": 1
+    },
+    "London": {
+      "Cloth": 3,
+      "Wool": 3,
+      "Clothing": 1,
+      "Hemp": 2,
+      "Spices": 1,
+      "Grain": 1
+    },
+    "Bremerhaven": {
+      "Beer": 2,
+      "Cheese": 4,
+      "Grain": 2,
+      "Salt": 4,
+      "Wood": 2
+    },
+    "Groningen": {
+      "Cheese": 6,
+      "Beer": 1,
+      "Grain": 2,
+      "Salt": 4
+    },
+    "Brügge": {
+      "Cloth": 5,
+      "Wine": 3,
+      "Spices": 1,
+      "Clothing": 2,
+      "Wool": 2,
+      "Bricks": 3
+    },
+    "Aalborg": {
+      "Meat": 8,
+      "Salt": 3,
+      "Mead": 2
+    },
+    "Stettin": {
+      "Grain": 2,
+      "Wood": 6,
+      "Bricks": 4,
+      "Hemp": 2
+    },
+    "Reval": {
+      "Furs": 1,
+      "Honey": 3,
+      "Mead": 1,
+      "Grain": 2,
+      "Hemp": 4
+    },
+    "Malmö": {
+      "Stockfish": 3,
+      "Meat": 2,
+      "Wool": 3,
+      "Grain": 2
+    }
+  },
+  "citizens": {
+    "Hamburg": 5000,
+    "Lübeck": 4000,
+    "Riga": 3000,
+    "Danzig": 3000,
+    "Rostock": 2000,
+    "Kopenhaven": 2000,
+    "Göteborg": 1000,
+    "Oslo": 1000,
+    "Visby": 1000,
+    "Stockholm": 1000,
+    "Stavanger": 1000,
+    "Bergen": 1000,
+    "Edinburgh": 2000,
+    "London": 5000,
+    "Bremerhaven": 1000,
+    "Groningen": 1000,
+    "Brügge": 2000,
+    "Aalborg": 1000,
+    "Stettin": 1000,
+    "Reval": 1000,
+    "Malmö": 1000
+  }
+}
