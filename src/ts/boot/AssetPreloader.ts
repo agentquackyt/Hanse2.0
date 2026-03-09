@@ -8,8 +8,6 @@ export interface PreloadProgress {
 }
 
 const STATIC_IMAGE_URLS = [
-    "./src/assets/images/_background.webp",
-    "./src/assets/images/intro_background.webp",
     "./assets/images/texture_background.webp",
     "./assets/images/world_map.svg",
     "./assets/images/world_map_2.svg",
