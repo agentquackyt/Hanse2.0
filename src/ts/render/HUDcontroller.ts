@@ -427,7 +427,7 @@ export class HUDcontroller {
 
             const icon = document.createElement("img");
             icon.classList.add("city-market-icon");
-            icon.src = `/assets/images/icons/${good.img}`;
+            icon.src = `./assets/images/icons/${good.img}`;
             icon.alt = good.name;
 
             const goodCell = document.createElement("td");
@@ -534,7 +534,7 @@ export class HUDcontroller {
 
             const icon = document.createElement("img");
             icon.classList.add("production-card-icon");
-            icon.src = `/assets/images/icons/${good.img}`;
+            icon.src = `./assets/images/icons/${good.img}`;
             icon.alt = good.name;
 
             const content = document.createElement("div");
@@ -838,7 +838,7 @@ export class HUDcontroller {
 
             const icon = document.createElement("img");
             icon.classList.add("trade-row-icon");
-            icon.src = `/assets/images/icons/${good.img}`;
+            icon.src = `./assets/images/icons/${good.img}`;
             icon.alt = good.name;
             row.appendChild(icon);
 

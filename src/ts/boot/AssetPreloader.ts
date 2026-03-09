@@ -8,14 +8,14 @@ export interface PreloadProgress {
 }
 
 const STATIC_IMAGE_URLS = [
-    "/src/assets/images/_background.webp",
-    "/src/assets/images/intro_background.webp",
-    "/assets/images/texture_background.webp",
-    "/assets/images/world_map.svg",
-    "/assets/images/world_map_2.svg",
-    "/assets/images/world_map_3.svg",
-    "/assets/images/new_world_map.png",
-    "/assets/images/ship.svg",
+    "./src/assets/images/_background.webp",
+    "./src/assets/images/intro_background.webp",
+    "./assets/images/texture_background.webp",
+    "./assets/images/world_map.svg",
+    "./assets/images/world_map_2.svg",
+    "./assets/images/world_map_3.svg",
+    "./assets/images/new_world_map.png",
+    "./assets/images/ship.svg",
 ];
 
 const preloadedImages = new Map<string, HTMLImageElement>();

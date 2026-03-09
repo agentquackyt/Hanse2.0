@@ -19,7 +19,7 @@ const SOUND_MANIFEST: Record<SoundId, string> = {
     // ship_arrive: "/audio/ship_arrive.ogg",
     // market_buy:  "/audio/market_buy.ogg",
     // market_sell: "/audio/market_sell.ogg",
-    Deus_Maris:  "/assets/sounds/Deus_Maris_Variation.mp3",
+    Deus_Maris:  "./assets/sounds/Deus_Maris_Variation.mp3",
 };
 
 /**

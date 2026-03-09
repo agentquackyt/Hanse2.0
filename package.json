@@ -11,6 +11,6 @@
   },
   "scripts": {
     "dev": "bun run --hot dev.ts",
-    "build": "rm -r docs && bun build index.html --outdir docs && cp -r assets docs/assets"
+    "build": "rm -r docs && bun build index.html --minify --outdir docs && cp -r assets docs/assets"
   }
 }

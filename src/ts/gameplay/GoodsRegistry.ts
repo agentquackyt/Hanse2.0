@@ -56,8 +56,8 @@ export class GoodsRegistry {
 
         GoodsRegistry._loadingPromise = (async () => {
         const [goodsRes, configRes] = await Promise.all([
-            fetch("/assets/data/goods.json"),
-            fetch("/assets/data/config.json"),
+            fetch("./assets/data/goods.json"),
+            fetch("./assets/data/config.json"),
         ]);
         const goodsJson: GoodsJson = await goodsRes.json();
         const configJson: ConfigJson = await configRes.json();

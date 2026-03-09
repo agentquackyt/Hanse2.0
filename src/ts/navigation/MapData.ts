@@ -22,7 +22,7 @@ export interface MapData {
 
 /** Fetch and parse the map data JSON. */
 export async function loadMapData(): Promise<MapData> {
-    const resp = await fetch("/assets/data/map_data.json");
+    const resp = await fetch("./assets/data/map_data.json");
     if (!resp.ok) throw new Error(`Failed to load map data: ${resp.status}`);
     return resp.json() as Promise<MapData>;
 }

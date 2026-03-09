@@ -48,7 +48,7 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
     const [mapData, registry, citiesRes] = await Promise.all([
         loadMapData(),
         GoodsRegistry.load(),
-        fetch("/assets/data/cities.json").then(r => r.json() as Promise<CitiesJson>),
+        fetch("./assets/data/cities.json").then(r => r.json() as Promise<CitiesJson>),
     ]);
 
     const graph = new NavigationGraph(mapData);

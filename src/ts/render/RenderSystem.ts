@@ -8,9 +8,9 @@ import { getPreloadedImage, loadImageAsset } from "../boot/AssetPreloader";
 const MIN_ZOOM = 1.0;
 const MAX_ZOOM = 3.0;
 const SMOOTH_SAMPLES = 6;
-const WORLD_MAP_URL = "/assets/images/world_map.svg";
-const BACKGROUND_TEXTURE_URL = "/assets/images/texture_background.webp";
-const SHIP_SPRITE_URL = "/assets/images/ship.svg";
+const WORLD_MAP_URL = "./assets/images/world_map.svg";
+const BACKGROUND_TEXTURE_URL = "./assets/images/texture_background.webp";
+const SHIP_SPRITE_URL = "./assets/images/ship.svg";
 const DEFAULT_MAP_ASPECT_RATIO = 196.45584 / 111.70967;
 
 interface Pt { readonly x: number; readonly y: number }
