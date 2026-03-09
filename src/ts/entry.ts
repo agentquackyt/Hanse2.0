@@ -1,4 +1,5 @@
 import hanseEngine, { initWorld, renderSystem } from "./setup";
+import "./Inspector";
 import { runIntroSequence } from "./intro";
 import { AudioManager } from "./audio/AudioManager";
 import { preloadStartupAssets, type PreloadProgress } from "./boot/AssetPreloader";

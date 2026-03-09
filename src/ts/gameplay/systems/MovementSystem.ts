@@ -20,10 +20,10 @@ export class MovementSystem extends TickSystem {
                 // Find the city entity at the destination
                 const destinationCity = this.findCityAtPosition(route.destination);
                 if (destinationCity) {
-                    this.triggerHUDController(destinationCity);
-                    // Clear the "on sea" flag so city info can be displayed
+                    // Clear the "on sea" flag FIRST so updateCityInfo is not blocked
                     const hud = HUDcontroller.getInstance();
                     hud.setOnSeaState(false);
+                    this.triggerHUDController(destinationCity);
                 }
 
                 entity.removeComponent(TravelRoute);

@@ -37,7 +37,7 @@
       "img": "gewuerze.png",
       "PP": null,
       "BP": 600,
-      "SP": 900,
+      "SP": 1000,
       "base_demand": 1
     },
     {
@@ -184,16 +184,9 @@
       }
     },
     {
-      "product": "Furs",
-      "ingredients": {
-        "Metal Goods": 1,
-        "Hemp": 1
-      }
-    },
-    {
       "product": "Cloth",
       "ingredients": {
-        "Wool": 1
+        "Wool": 1 
       }
     },
     {
@@ -207,18 +200,6 @@
       "ingredients": {
         "Salt": 1,
         "Hemp": 1
-      }
-    },
-    {
-      "product": "Salt",
-      "ingredients": {
-        "Wood": 1
-      }
-    },
-    {
-      "product": "Bricks",
-      "ingredients": {
-        "Wood": 1
       }
     },
     {

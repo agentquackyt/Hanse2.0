@@ -1,14 +1,18 @@
 import { TickSystem } from "../../ecs/System";
-import { City, Market, CityProduction } from "../components";
+import { City, Market, CityProduction, type TradeGood } from "../components";
 import { GoodsRegistry } from "../GoodsRegistry";
 import { HUDcontroller } from "../../render/HUDcontroller";
-import { DEMAND_DAYS_PER_WEEK, REAL_SECONDS_PER_DAY } from "../GameTime";
+import { DEMAND_DAYS_PER_WEEK, REAL_SECONDS_PER_DAY, REAL_SECONDS_PER_WEEK } from "../GameTime";
+import { demandAlgorithm } from "../algorithms/EconomyAlgorithms";
+import { ShadowProductionAlgorithm } from "../algorithms/ShadowProductionAlgorithm";
+import { SatisfactionAlgorithm } from "../algorithms/SatisfactionAlgorithm";
 
 /**
  * Production & demand system. Each tick:
  *
  * 1) **Production** — for every good the city produces:
- *    `amount = baseProduction × (citizens / 10) × cityMultiplier`
+ *    `amount = baseProduction × (citizens / 10) × cityMultiplier × (elapsed / REAL_SECONDS_PER_DAY)`
+ *    Time-scaled so production rate is comparable to demand consumption rate.
  *    If the good has a recipe, required ingredients are deducted from the
  *    market first. Production is **blocked** when any ingredient is missing.
  *
@@ -37,7 +41,7 @@ export class MarketSystem extends TickSystem {
                 if (!good) continue;
 
                 const baseProduction = registry.getBaseProduction(goodName);
-                const amount = baseProduction * (citizens / 10) * cityMultiplier;
+                const amount = baseProduction * (citizens / 10) * cityMultiplier * (elapsed / REAL_SECONDS_PER_DAY);
                 if (amount <= 0) continue;
 
                 const recipe = registry.getRecipe(goodName);
@@ -70,19 +74,51 @@ export class MarketSystem extends TickSystem {
                 }
             }
 
-            // ---- Demand (population consumption) ----
+            // ---- Demand (population consumption + production ingredients) ----
+            // First, tally weekly ingredient demand each recipe imposes on this market.
+            const productionDemand = new Map<TradeGood, number>();
+            for (const [goodName, cityMultiplier] of multipliers) {
+                const recipe = registry.getRecipe(goodName);
+                if (!recipe) continue;
+                const baseProduction = registry.getBaseProduction(goodName);
+                const weeklyProduction = baseProduction * (citizens / 10) * cityMultiplier * DEMAND_DAYS_PER_WEEK;
+                for (const [ingredientName, ratio] of Object.entries(recipe.ingredients)) {
+                    const ingredientGood = registry.getGood(ingredientName);
+                    if (!ingredientGood) continue;
+                    productionDemand.set(
+                        ingredientGood,
+                        (productionDemand.get(ingredientGood) ?? 0) + weeklyProduction * ratio,
+                    );
+                }
+            }
+
             for (const [good, entry] of market.goods()) {
-                if (good.base_demand <= 0) continue;
-                const weeklyDemand = good.base_demand * citizens / 1000;
-                const dailyDemand = weeklyDemand / DEMAND_DAYS_PER_WEEK;
-                const consumed = dailyDemand * (elapsed / REAL_SECONDS_PER_DAY);
+                if (good.base_demand <= 0 && !productionDemand.has(good)) continue;
+                const weeklyConsumerDemand = good.base_demand > 0 ? demandAlgorithm(good, entity) : 0;
+                const weeklyProdDemand = productionDemand.get(good) ?? 0;
+                const weeklyDemand = weeklyConsumerDemand + weeklyProdDemand;
+
+                const dailyConsumerDemand = weeklyConsumerDemand / DEMAND_DAYS_PER_WEEK;
+                const consumed = dailyConsumerDemand * (elapsed / REAL_SECONDS_PER_DAY);
                 const newSupply = Math.max(0, entry.supply - consumed);
                 market.update(good, {
                     supply: newSupply,
-                    demandFactor: newSupply < 20 ? 1.5 : newSupply > 100 ? 0.8 : 1.0,
+                    demand: weeklyDemand,
                 });
             }
         }
+
+        // ---- Population growth based on satisfaction ----
+        const satisfactionResults = SatisfactionAlgorithm.evaluate(this.world);
+        for (const [cityEntity, result] of satisfactionResults) {
+            if (result.growthPerWeek <= 0) continue;
+            const cityComp = cityEntity.getComponent(City)!;
+            const growth = result.growthPerWeek * (elapsed / REAL_SECONDS_PER_WEEK);
+            cityComp.population = Math.floor(cityComp.population + growth);
+        }
+
+        // Shadow economy balancer — gentle supply/demand corrections.
+        ShadowProductionAlgorithm.run(this.world, elapsed);
 
         HUDcontroller.getInstance().notifyDataChange();
     }

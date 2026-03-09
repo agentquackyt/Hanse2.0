@@ -1,7 +1,10 @@
 import type { Entity } from "../ecs/Entity";
-import { City, Market, Name, Inventory, Ship, Gold, CityProduction, Kontor, PlayerControlled, type TradeGood } from "../gameplay/components";
+import { City, Market, Name, Inventory, Ship, Gold, CityProduction, Kontor, PlayerControlled, IsPlayerOwned, type TradeGood } from "../gameplay/components";
 import type { TradeSystem } from "../gameplay/systems";
 import { GoodsRegistry } from "../gameplay/GoodsRegistry";
+import { DAYS_PER_WEEK } from "../gameplay/GameTime";
+import { demandAlgorithm } from "../gameplay/algorithms/EconomyAlgorithms";
+import { SatisfactionAlgorithm, SatisfactionLevel, GROWTH_BASE_PER_WEEK } from "../gameplay/algorithms/SatisfactionAlgorithm";
 
 /** Map a slider value (0–100) to a quantity via log scale. */
 function sliderQty(v: number, maxQty: number): number {
@@ -67,7 +70,7 @@ export class HUDcontroller {
     }
 
     private _resolveEndpointGold(endpoint: Entity | null): Gold | null {
-        if (endpoint?.hasComponent(PlayerControlled)) {
+        if (endpoint?.hasComponent(PlayerControlled) || endpoint?.hasComponent(IsPlayerOwned)) {
             return this._getPlayerCompanyGold() ?? endpoint.getComponent(Gold) ?? null;
         }
         return endpoint?.getComponent(Gold) ?? null;
@@ -187,15 +190,9 @@ export class HUDcontroller {
             return getEndpointInventory(id)?.get(good) ?? 0;
         };
 
-        const quoteHarborTransfer = (good: TradeGood, quantity: number, mode: "buy" | "sell"): number => {
-            const entry = market?.getEntry(good);
-            if (!entry || quantity <= 0) return 0;
-
-            const midpointSupply = mode === "buy"
-                ? Math.max(1, entry.supply - quantity / 2)
-                : Math.max(1, entry.supply + quantity / 2);
-            const midpointPrice = Math.max(1, Math.round(entry.basePrice * entry.demandFactor / Math.max(1, midpointSupply / 50)));
-            return midpointPrice * quantity;
+        const quoteHarborTransfer = (good: TradeGood, quantity: number, _mode: "buy" | "sell"): number => {
+            if (!market || quantity <= 0) return 0;
+            return market.currentPrice(good) * quantity;
         };
 
         const getMaxAffordableQty = (good: TradeGood, buyerId: EndpointKind, availableQty: number): number => {
@@ -375,6 +372,20 @@ export class HUDcontroller {
         cityPopulationCard.appendChild(cityPopulationValue);
         cityPanel.appendChild(cityPopulationCard);
 
+        const citySatisfactionCard = document.createElement("div");
+        citySatisfactionCard.classList.add("city-population-card");
+        const citySatisfactionLabel = document.createElement("span");
+        citySatisfactionLabel.classList.add("city-population-label");
+        citySatisfactionLabel.textContent = "Satisfaction";
+        const citySatisfactionValue = document.createElement("strong");
+        citySatisfactionValue.classList.add("city-population-value");
+        const citySatisfactionGrowth = document.createElement("span");
+        citySatisfactionGrowth.classList.add("city-population-label");
+        citySatisfactionCard.appendChild(citySatisfactionLabel);
+        citySatisfactionCard.appendChild(citySatisfactionValue);
+        citySatisfactionCard.appendChild(citySatisfactionGrowth);
+        cityPanel.appendChild(citySatisfactionCard);
+
         const cityMarketSection = document.createElement("section");
         cityMarketSection.classList.add("city-market-section");
         const cityMarketTitle = document.createElement("h3");
@@ -460,8 +471,27 @@ export class HUDcontroller {
                 .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
             : [];
 
+        const satisfactionLevelLabels: Record<SatisfactionLevel, string> = {
+            [SatisfactionLevel.NotSatisfied]: "Not Satisfied",
+            [SatisfactionLevel.Satisfied]: "Satisfied",
+            [SatisfactionLevel.VerySatisfied]: "Very Satisfied",
+            [SatisfactionLevel.VeryVerySatisfied]: "Very Satisfied!",
+        };
+
         const refreshCityPanel = () => {
             cityPopulationValue.textContent = `${cityComp.population.toLocaleString()} citizens`;
+
+            if (market) {
+                const cached = SatisfactionAlgorithm.getCached(city.id);
+                const satisfaction = cached?.satisfaction ?? SatisfactionAlgorithm.calculateSatisfaction(market);
+                const level = cached?.level ?? SatisfactionAlgorithm.getSatisfactionLevel(satisfaction);
+                citySatisfactionValue.textContent = `${satisfactionLevelLabels[level]} (${Math.round(satisfaction * 100)}%)`;
+
+                const growthPerWeek = cached?.growthPerWeek ?? 0;
+                citySatisfactionGrowth.textContent = growthPerWeek > 0
+                    ? `+${growthPerWeek} citizens/week`
+                    : "No growth";
+            }
 
             for (const [good, state] of cityMarketStates) {
                 const stock = Math.round(market?.getEntry(good)?.supply ?? 0);
@@ -491,7 +521,6 @@ export class HUDcontroller {
         interface ProductionCardState {
             rateValue: HTMLSpanElement;
             stockValue: HTMLSpanElement;
-            multiplierValue: HTMLSpanElement;
         }
 
         const productionStates = new Map<string, ProductionCardState>();
@@ -521,11 +550,8 @@ export class HUDcontroller {
             rateValue.classList.add("production-card-chip");
             const stockValue = document.createElement("span");
             stockValue.classList.add("production-card-chip");
-            const multiplierValue = document.createElement("span");
-            multiplierValue.classList.add("production-card-chip", "production-card-chip-muted");
             meta.appendChild(rateValue);
             meta.appendChild(stockValue);
-            meta.appendChild(multiplierValue);
 
             content.appendChild(name);
             content.appendChild(meta);
@@ -533,7 +559,7 @@ export class HUDcontroller {
             card.appendChild(content);
             productionGrid.appendChild(card);
 
-            productionStates.set(goodName, { rateValue, stockValue, multiplierValue });
+            productionStates.set(goodName, { rateValue, stockValue });
         }
 
         const productionEmptyState = document.createElement("p");
@@ -555,11 +581,12 @@ export class HUDcontroller {
                 if (!good) continue;
                 const multiplier = production.multipliers.get(goodName) ?? 0;
                 const baseProd = registry.getBaseProduction(goodName);
-                const rate = baseProd * (production.citizens / 10) * multiplier;
+                const dailyRate = baseProd * (production.citizens / 10) * multiplier;
+                const weeklyRate = dailyRate * DAYS_PER_WEEK;
+                const weeklyDemand = demandAlgorithm(good, production.citizens);
                 const supply = Math.round(market.getEntry(good)?.supply ?? 0);
-                state.rateValue.textContent = `${rate.toFixed(1)}/tick`;
-                state.stockValue.textContent = `${supply} stock`;
-                state.multiplierValue.textContent = `${multiplier.toFixed(1)}x`;
+                state.rateValue.textContent = `${weeklyRate.toFixed(1)}/week`;
+                state.stockValue.textContent = `${supply} stock  (demand ${weeklyDemand}/week)`;
             }
         };
         refreshProductionPanel();

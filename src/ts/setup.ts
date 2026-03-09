@@ -3,7 +3,7 @@ import { Entity } from "./ecs/Entity";
 import {
     Position, Name, City, Ship, Gold, Inventory,
     Market, PlayerControlled, CityProduction,
-    IsPlayerOwned, Kontor, Merchant,
+    IsPlayerOwned, Kontor, Merchant, ShadowProducer,
     type TradeGood, type MarketEntry,
 } from "./gameplay/components";
 import { HUDcontroller } from "./render/HUDcontroller";
@@ -17,6 +17,7 @@ import { GameTime } from "./gameplay/GameTime";
 import { TravelRoute } from "./gameplay/components";
 import type { SaveGameData } from "./persistence/SaveGameManager";
 import { SaveGameManager } from "./persistence/SaveGameManager";
+import { demandAlgorithm } from "./gameplay/algorithms/EconomyAlgorithms";
 
 interface CitiesJson {
     production: Record<string, Record<string, number>>;
@@ -70,7 +71,7 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
         // Build market entries for all known goods (supply starts at 0).
         const marketEntries: [TradeGood, MarketEntry][] = allGoods.map(good => [
             good,
-            { basePrice: good.buyPrice, supply: Math.random() * 400, demandFactor: 1.0 },
+            { basePrice: good.buyPrice, supply: demandAlgorithm(good, citizens) * (6 * Math.random()), demand: NaN },
         ]);
 
         const city = new Entity()
@@ -89,13 +90,13 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
         .addComponent(new Name("Hanse Trading Company"))
         .addComponent(new Merchant("Hanse Trading Company"))
         .addComponent(new IsPlayerOwned(true))
-        .addComponent(new Gold(500));
+        .addComponent(new Gold(1500));
     world.addEntity(playerCompany);
 
     const playerShip = new Entity()
         .addComponent(new Position(startPos.x, startPos.y))
         .addComponent(new Name("Adler von Lübeck"))
-        .addComponent(new Ship(150, 0.04))
+        .addComponent(new Ship(200, 0.04))
         .addComponent(new Gold(0))
         .addComponent(new Inventory())
         .addComponent(new PlayerControlled());
@@ -106,11 +107,18 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
     const kontorLuebeck = new Entity()
         .addComponent(new Position(startPos.x, startPos.y))
         .addComponent(new Name("Kontor Lübeck"))
-        .addComponent(new Kontor(100))
+        .addComponent(new Kontor(250))
         .addComponent(new IsPlayerOwned(true))
         .addComponent(new Inventory())
         .addComponent(new Gold(0));
     world.addEntity(kontorLuebeck);
+
+    // Virtual shadow producer — acts as a world-market balancer.
+    const shadowProducer = new Entity()
+        .addComponent(new ShadowProducer())
+        .addComponent(new Gold(1_000_000))
+        .addComponent(new Inventory());
+    world.addEntity(shadowProducer);
 
     HUDcontroller.getInstance().setTradeSystem(tradeSystem);
     HUDcontroller.getInstance().setPlayerShip(playerShip);

@@ -1,4 +1,5 @@
 import { Component } from "../../ecs/Entity";
+import { priceAlgorithm } from "../algorithms/EconomyAlgorithms";
 
 /** All tradeable commodities in the game. */
 export interface TradeGood {
@@ -63,8 +64,7 @@ export class CityProduction extends Component {
 export interface MarketEntry {
     readonly basePrice: number;
     supply: number;
-    /** >1 raises price, <1 lowers it. */
-    demandFactor: number;
+    demand: number;
 }
 
 /** City marketplace — tracks supply, demand, and dynamic pricing per good. */
@@ -91,7 +91,7 @@ export class Market extends Component {
     currentPrice(good: TradeGood): number {
         const e = this._entries.get(good);
         if (!e) return 0;
-        return Math.max(1, Math.round(e.basePrice * e.demandFactor / Math.max(1, e.supply / 50)));
+        return priceAlgorithm(good, this);
     }
 
     goods(): IterableIterator<[TradeGood, MarketEntry]> {
