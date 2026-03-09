@@ -71,7 +71,7 @@ export class SpriteManager {
 
             img!.addEventListener("load", onLoad, { once: true });
             img!.addEventListener("error", onError, { once: true });
-            img!.src = `/assets/images/icons/${good.img}`;
+            img!.src = `./assets/images/icons/${good.img}`;
         });
 
         this._loadingPromises.set(good.name, promise);

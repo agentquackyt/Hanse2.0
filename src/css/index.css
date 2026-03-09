@@ -49,7 +49,7 @@ body {
     background:
         radial-gradient(circle at 50% 18%, rgba(240, 200, 120, 0.18) 0%, rgba(240, 200, 120, 0) 34%),
         linear-gradient(180deg, rgba(10, 8, 7, 0.18) 0%, rgba(10, 8, 7, 0.56) 100%),
-        url("../assets/images/_background.webp") center/cover no-repeat;
+        url("../assets/images/background.webp") center/cover no-repeat;
     flex-direction: column;
     overflow: hidden;
 }
