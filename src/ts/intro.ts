@@ -16,10 +16,10 @@ const SLIDES: Slide[] = [
     { text: "From Lübeck they sail north and east,\ncarrying grain, timber, cloth, and fur.", hold: 3500 },
     { text: "But the League is a closed club, \na secret society of powerful merchants.", hold: 3500 },
     { text: "A network of alliances, favors, and debts keeps the outsiders out.", hold: 3500 },
-    { text: "Yet still...", hold: 1500 },
+    { text: "Yet still...", hold: 1000 },
     { text: "... are you a young merchant with one ship,\na little gold, and great ambition.", hold: 3700 },
-    { text: "Set sail, young merchant!", hold: 2000 },
-    { text: "The Baltic awaits.", hold: 2000 },
+    { text: "Set sail, young merchant!", hold: 1500 },
+    { text: "The Baltic awaits.", hold: 1000 },
 ];
 
 const FADE_MS = 500;
@@ -86,7 +86,7 @@ export function runIntroSequence(): Promise<void> {
             captionContainer.appendChild(caption);
 
             if (triggerSound) {
-                AudioManager.getInstance().play(triggerSound);
+                AudioManager.getInstance().play(triggerSound, 0.7);
             }
 
             // Fade in

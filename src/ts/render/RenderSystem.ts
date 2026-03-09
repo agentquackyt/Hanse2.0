@@ -482,7 +482,7 @@ export class MapRenderSystem extends TickSystem {
             // Core marker
             ctx.beginPath();
             ctx.arc(sx, sy, coreRadius, 0, Math.PI * 2);
-            ctx.fillStyle = hasKontor ? "#8a2828" : hasPlayerDocked ? "#244c7c" : "#7a4d2d";
+            ctx.fillStyle = hasPlayerDocked ? "#244c7c" : hasKontor ? "#8a2828" : "#7a4d2d";
             ctx.fill();
 
 
