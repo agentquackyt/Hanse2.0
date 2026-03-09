@@ -1107,8 +1107,14 @@ export class HUDcontroller {
         document.addEventListener("keydown", escHandler);
 
         // Click on backdrop to close.
+        // Track where the mousedown started so that dragging a slider out of
+        // the modal and releasing on the backdrop does not close the modal.
+        let mousedownOnBackdrop = false;
+        modal.addEventListener("mousedown", (e) => {
+            mousedownOnBackdrop = e.target === modal;
+        });
         modal.addEventListener("click", (e) => {
-            if (e.target === modal) closeModal();
+            if (e.target === modal && mousedownOnBackdrop) closeModal();
         });
 
         modal.appendChild(win);

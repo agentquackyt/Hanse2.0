@@ -22,21 +22,21 @@ import { REAL_SECONDS_PER_DAY } from "../GameTime";
 // ---- Tuning constants ----
 
 /** Shadow production kicks in when global supply falls below this fraction of demand. */
-const SHORTAGE_THRESHOLD = 0.9;
+const SHORTAGE_THRESHOLD = 0.95;
 /** Shadow entity absorbs stock when a city's supply exceeds this multiple of demand. */
-const OVERFLOW_THRESHOLD = 5.0;
+const OVERFLOW_THRESHOLD = 1.8;
 /** Cities import from the shadow entity when their supply is below this fraction of demand. */
-const IMPORT_THRESHOLD = 1.4;
+const IMPORT_THRESHOLD = 1.0;
 /** Target supply level the shadow entity fills cities up to during global-shortage distribution. */
-const IMPORT_TARGET = 1.5;
+const IMPORT_TARGET = 1.2;
 /** Fraction of the daily deficit that the shadow entity generates per tick. */
 const PRODUCTION_RATE = 0.8;
 /** Maximum units a single city can import from the shadow entity per tick. */
-const MAX_PER_TRADE = 75;
+const MAX_PER_TRADE = 120;
 /** A city is considered overflowing for inter-city trade when supply exceeds this multiple of demand. */
-const INTERCITY_OVERFLOW_THRESHOLD = 2.0;
+const INTERCITY_OVERFLOW_THRESHOLD = 1.5;
 /** Maximum units transferred in a single inter-city trade per good per tick. */
-const MAX_INTERCITY_TRADE = 40;
+const MAX_INTERCITY_TRADE = 80;
 
 interface GlobalMetric {
     totalSupply: number;
@@ -199,13 +199,16 @@ export class ShadowProductionAlgorithm {
                 const target = entry.demand * IMPORT_TARGET - entry.supply;
                 if (target <= 0) continue;
 
-                const affordable = cityGold ? Math.floor(cityGold.amount / good.buyPrice) : MAX_PER_TRADE;
+                const exactAffordable = cityGold ? Math.floor(Math.max(0, cityGold.amount) / good.buyPrice) : MAX_PER_TRADE;
+                const affordable = Math.max(exactAffordable, 20); // Always allow at least 20 units to prevent deadlocks when cities go broke
                 const qty = Math.min(target, available, affordable, MAX_PER_TRADE);
                 if (qty <= 0) continue;
 
                 const cost = qty * good.buyPrice;
                 shadowInv.remove(good, qty);
-                if (cityGold) cityGold.amount -= cost;
+                if (cityGold) {
+                    cityGold.amount = Math.max(0, cityGold.amount - cost);
+                }
                 shadowGold.amount += cost;
                 market.update(good, { supply: entry.supply + qty });
                 console.log(`  [distrib] ${cityName} / ${good.name}  qty=${qty.toFixed(2)}  cost=${cost.toFixed(0)}  citySupply→${(entry.supply + qty).toFixed(1)}`);

@@ -6,7 +6,7 @@
       "PP": 75,
       "BP": 90,
       "SP": 135,
-      "base_demand": 9
+      "base_demand": 8
     },
     {
       "name": "Furs",
@@ -30,7 +30,7 @@
       "PP": 33,
       "BP": 40,
       "SP": 59,
-      "base_demand": 10
+      "base_demand": 9
     },
     {
       "name": "Spices",
@@ -54,7 +54,7 @@
       "PP": 33,
       "BP": 40,
       "SP": 59,
-      "base_demand": 8
+      "base_demand": 0
     },
     {
       "name": "Honey",
@@ -70,7 +70,7 @@
       "PP": 100,
       "BP": 120,
       "SP": 180,
-      "base_demand": 6
+      "base_demand": 4
     },
     {
       "name": "Clothing",
@@ -118,7 +118,7 @@
       "PP": 58,
       "BP": 70,
       "SP": 104,
-      "base_demand": 7
+      "base_demand": 0
     },
     {
       "name": "Stockfish",
@@ -126,7 +126,7 @@
       "PP": 129,
       "BP": 155,
       "SP": 232,
-      "base_demand": 9
+      "base_demand": 8
     },
     {
       "name": "Cloth",
@@ -134,7 +134,7 @@
       "PP": 150,
       "BP": 180,
       "SP": 270,
-      "base_demand": 5
+      "base_demand": 1
     },
     {
       "name": "Wine",

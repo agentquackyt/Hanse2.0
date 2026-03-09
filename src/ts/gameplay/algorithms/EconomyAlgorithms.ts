@@ -19,11 +19,11 @@ export function priceAlgorithm(good: TradeGood, market: Market): number {
     const marketEntry = market.getEntry(good) as MarketEntry;
     let { supply, demand } = marketEntry || { supply: 0, demand: 0 };
 
-    if (supply > demand * 2) {
+    if (supply > demand * 1.6) {
         const excessSupply = Math.min(supply - demand * 2, demand * 25 - demand * 2);
         const priceDrop = (excessSupply / (demand * 25 - demand * 2)) ** 3;
         estimatedPrice = basePrice - (basePrice - oversaturatedPrice) * priceDrop;
-    } else if (supply < demand) {
+    } else if (supply < demand * 1.2) {
         const shortage = Math.min(demand - supply, demand * 0.5);
         const priceIncrease = (shortage / (demand * 0.5)) ** 3;
         estimatedPrice = basePrice + (maxPrice - basePrice) * priceIncrease;

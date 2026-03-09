@@ -5,7 +5,9 @@
  */
 
 import { Engine } from "./ecs/Engine";
-import { City, Gold, Market, Name } from "./gameplay/components";
+import { City, CityProduction, Gold, Market, Name } from "./gameplay/components";
+import { DAYS_PER_WEEK } from "./gameplay/GameTime";
+import { GoodsRegistry } from "./gameplay/GoodsRegistry";
 
 interface CityMoney {
     city: string;
@@ -23,6 +25,7 @@ interface GoodOverview {
     good: string;
     totalSupply: number;
     totalDemand: number;
+    globalProduction: number;
     topSurplus: CityGoodEntry[];
     bottomStock: CityGoodEntry[];
 }
@@ -50,18 +53,24 @@ function getOverview(): void {
     for (const city of cities) {
         const market   = city.getComponent(Market)!;
         const cityName = city.getComponent(Name)!.value as string;
+        const registry = GoodsRegistry.getInstance();
 
         for (const [good, entry] of market.goods()) {
             if (!(entry.demand > 0)) continue;
 
             let row = goodsMap.get(good.name);
             if (!row) {
-                row = { good: good.name, totalSupply: 0, totalDemand: 0, topSurplus: [], bottomStock: [] };
+                row = { good: good.name, totalSupply: 0, totalDemand: 0, globalProduction: 0, topSurplus: [], bottomStock: [] };
                 goodsMap.set(good.name, row);
             }
 
             row.totalSupply += entry.supply;
             row.totalDemand += entry.demand;
+            const production = city.getComponent(CityProduction);
+            const multiplier = production?.multipliers.get(good.name) ?? 0;
+            const baseProd   = registry.getBaseProduction(good.name);
+            const citizens   = production?.citizens ?? 0;
+            row.globalProduction += baseProd * (citizens / 10) * multiplier * DAYS_PER_WEEK;
             row.topSurplus.push({
                 city: cityName,
                 supply: Math.round(entry.supply * 10) / 10,
@@ -78,6 +87,7 @@ function getOverview(): void {
             good: row.good,
             totalSupply: Math.round(row.totalSupply * 10) / 10,
             totalDemand: Math.round(row.totalDemand * 10) / 10,
+            globalProduction: Math.round(row.globalProduction * 10) / 10,
             topSurplus:  sorted.slice(0, 2),
             bottomStock: sorted.slice(-2).reverse(),
         };

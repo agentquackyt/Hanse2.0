@@ -96,7 +96,7 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
     const playerShip = new Entity()
         .addComponent(new Position(startPos.x, startPos.y))
         .addComponent(new Name("Adler von Lübeck"))
-        .addComponent(new Ship(200, 0.04))
+        .addComponent(new Ship(250, 0.025))
         .addComponent(new Gold(0))
         .addComponent(new Inventory())
         .addComponent(new PlayerControlled());

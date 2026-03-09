@@ -414,42 +414,55 @@ export class MapRenderSystem extends TickSystem {
 
     private _drawCities(): void {
         const ctx = this._ctx;
-        // Collect positions of all docked ships (no route, no nav path).
-        const dockedPositions: Array<{ x: number; y: number }> = [];
-        for (const ship of this.world.query(Position, Ship)) {
+
+        // Collect positions where the player's ship is docked (no route, no nav path).
+        const playerDockedPositions: Array<{ x: number; y: number }> = [];
+        for (const ship of this.world.query(Position, Ship, PlayerControlled)) {
             if (!ship.hasComponent(TravelRoute) && !ship.hasComponent(NavigationPath)) {
                 const p = ship.getComponent(Position)!;
-                dockedPositions.push({ x: p.x, y: p.y });
+                playerDockedPositions.push({ x: p.x, y: p.y });
             }
+        }
+
+        // Collect positions that have a player-owned kontor.
+        const kontorPositions: Array<{ x: number; y: number }> = [];
+        for (const k of this.world.query(Position, Kontor, IsPlayerOwned)) {
+            const p = k.getComponent(Position)!;
+            kontorPositions.push({ x: p.x, y: p.y });
         }
 
         for (const entity of this.world.query(Position, City)) {
             const pos    = entity.getComponent(Position)!;
             const name   = entity.getComponent(Name);
 
-            // Check if any docked ship is at this city.
-            const hasDocked = dockedPositions.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 0.01);
+            const hasPlayerDocked = playerDockedPositions.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 0.01);
+            const hasKontor       = kontorPositions.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 0.01);
 
             const { sx, sy } = this._worldToScreen(pos.x, pos.y);
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-            const outerRadius = this._zoom > 1.5 ? 11 : 8.5;
-            const innerRadius = this._zoom > 1.5 ? 6.5 : 5;
-            const coreRadius = this._zoom > 1.5 ? 3.1 : 2.4;
+            const scale = hasPlayerDocked ? 1.2 : 1.0;
+            const outerRadius = (this._zoom > 1.5 ? 11 : 8.5) * scale;
+            const innerRadius = (this._zoom > 1.5 ? 6.5 : 5) * scale;
+            const coreRadius  = (this._zoom > 1.5 ? 3.1 : 2.4) * scale;
 
             // Outer glow
             ctx.beginPath();
             ctx.arc(sx, sy, outerRadius + 3, 0, Math.PI * 2);
-            ctx.fillStyle = hasDocked ? "rgba(233, 98, 98, 0.18)" : "rgba(240, 200, 120, 0.14)";
+            ctx.fillStyle = hasKontor
+                ? "rgba(220, 60, 60, 0.20)"
+                : hasPlayerDocked
+                    ? "rgba(98, 139, 233, 0.18)"
+                    : "rgba(240, 200, 120, 0.14)";
             ctx.fill();
 
-            // Bronze outer medallion
+            // Outer medallion
             ctx.beginPath();
             ctx.arc(sx, sy, outerRadius, 0, Math.PI * 2);
             const outerGradient = ctx.createRadialGradient(sx - 2, sy - 3, 1, sx, sy, outerRadius);
-            outerGradient.addColorStop(0, hasDocked ? "#e4acac" : "#dcb98a");
-            outerGradient.addColorStop(0.55, hasDocked ? "#b84f4f" : "#a8784b");
+            outerGradient.addColorStop(0, hasKontor ? "#e4acac" : hasPlayerDocked ? "#acb6e4" : "#dcb98a");
+            outerGradient.addColorStop(0.55, hasKontor ? "#b84f4f" : hasPlayerDocked ? "#4f76b8" : "#a8784b");
             outerGradient.addColorStop(1, "#8f6741");
             ctx.fillStyle = outerGradient;
             ctx.fill();
@@ -461,15 +474,15 @@ export class MapRenderSystem extends TickSystem {
             ctx.beginPath();
             ctx.arc(sx, sy, innerRadius, 0, Math.PI * 2);
             const innerGradient = ctx.createRadialGradient(sx - 1, sy - 2, 1, sx, sy, innerRadius);
-            innerGradient.addColorStop(0, hasDocked ? "#ffb1b1" : "#f3d7ab");
-            innerGradient.addColorStop(1, hasDocked ? "#ac4646" : "#7a4d2d");
+            innerGradient.addColorStop(0, hasKontor ? "#f89898" : hasPlayerDocked ? "#8890f8" : "#f3d7ab");
+            innerGradient.addColorStop(1, hasKontor ? "#7a2d2d" : hasPlayerDocked ? "#4660ac" : "#7a4d2d");
             ctx.fillStyle = innerGradient;
             ctx.fill();
 
-            // Core marker for active/docked city emphasis.
+            // Core marker
             ctx.beginPath();
             ctx.arc(sx, sy, coreRadius, 0, Math.PI * 2);
-            ctx.fillStyle = hasDocked ? "#7c2424" : "#7a4d2d";
+            ctx.fillStyle = hasKontor ? "#7c2424" : hasPlayerDocked ? "#244c7c" : "#7a4d2d";
             ctx.fill();
 
 
