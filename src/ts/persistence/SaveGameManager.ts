@@ -5,6 +5,7 @@ import { GoodsRegistry } from "../gameplay/GoodsRegistry";
 
 const SAVEGAME_KEY = "hanse2.savegame";
 const INTRO_SEEN_KEY = "hanse2.intro-seen";
+const TUTORIAL_SEEN_KEY = "hanse2.tutorial-seen";
 const SAVEGAME_VERSION = 1;
 const AUTOSAVE_INTERVAL_MS = 15000;
 
@@ -89,6 +90,14 @@ export class SaveGameManager {
 
     public static markIntroSeen(): void {
         localStorage.setItem(INTRO_SEEN_KEY, "true");
+    }
+
+    public static hasSeenTutorial(): boolean {
+        return localStorage.getItem(TUTORIAL_SEEN_KEY) === "true";
+    }
+
+    public static markTutorialSeen(): void {
+        localStorage.setItem(TUTORIAL_SEEN_KEY, "true");
     }
 
     public static saveWorld(world: World): boolean {

@@ -2,8 +2,8 @@
     --overlay-bg: rgba(0, 0, 0, 0.5);
     --hud-bg: rgba(22, 12, 7, 0.92);
     --hud-color: #f0c878;
-    --hud-color-sea: #62c1e9;
-    --hud-color-sea-content: #62c1e9;
+    --hud-color-sea: #4ab6e5;
+    --hud-color-sea-content: #b5e3f7;
     --hud-border: #8b6a50;
     --hud-card-bg: linear-gradient(180deg, rgba(53, 31, 20, .95) 0%, rgba(31, 18, 12, .95) 100%);
     --hud-card-border: #5a3e28;
@@ -142,9 +142,15 @@ body.intro-active .modal:not(.hidden) {
     line-height: 1.2;
 }
 
-#hud .hud-section .on-sea {
+#hud .hud-info-value.on-sea {
+    color: var(--hud-color-sea-content);
+}
+
+#hud .hud-info-title.on-sea {
     color: var(--hud-color-sea);
 }
+
+
 
 
 
@@ -980,5 +986,250 @@ body.intro-active .modal:not(.hidden) {
     .trade-slider-handle {
         width: 4.25rem;
         min-height: 2.7rem;
+    }
+}
+
+
+/* ------------------------------------------------------------------ Tutorial Panel */
+
+.tutorial-panel {
+    position: absolute;
+    bottom: 72px;   /* 14px base + 44px pill height + 14px gap */
+    left: 14px;
+    z-index: 1001;
+    width: 340px;
+    background: var(--hud-card-bg);
+    border: 1px solid var(--hud-border);
+    border-radius: 14px;
+    color: var(--hud-color);
+    font-family: var(--hud-font);
+    font-size: var(--hud-size);
+    padding: 1.1rem 1.4rem 1rem;
+    box-shadow:
+        0 18px 38px rgba(17, 6, 0, 0.652),
+        inset 0 1px 0 rgba(255, 228, 182, .08);
+    backdrop-filter: blur(10px);
+    transition: opacity .32s ease, transform .32s ease;
+    user-select: none;
+}
+
+.tutorial-panel.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+}
+
+body.intro-active .tutorial-panel,
+body.intro-active .hud-action-pill {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+.tutorial-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: .55rem;
+}
+
+.tutorial-step-label {
+    color: var(--hud-muted);
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.tutorial-title {
+    margin: 0 0 .45rem;
+    font-family: var(--hud-title-font);
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
+.tutorial-body {
+    margin: 0 0 .85rem;
+    color: #f7e0b5;
+    font-size: .95rem;
+    line-height: 1.55;
+}
+
+.tutorial-body kbd {
+    display: inline-block;
+    background: rgba(0, 0, 0, .45);
+    border: 1px solid var(--hud-border);
+    border-radius: 4px;
+    color: var(--hud-color);
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: .82em;
+    padding: .1em .42em;
+    margin: 0 .12em;
+    line-height: 1.3;
+    box-shadow: 0 1px 0 rgba(139, 106, 80, .35);
+}
+
+.tutorial-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin: 0 2px;
+}
+
+.tutorial-dot-blue {
+    background: #628be9;
+    box-shadow: 0 0 6px #628be9;
+}
+
+.tutorial-dot-red {
+    background: #dc3c3c;
+    box-shadow: 0 0 6px #dc3c3c;
+}
+
+.tutorial-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5rem;
+}
+
+.tutorial-back-btn {
+    background: none;
+    border: 1px solid #5a3e28;
+    border-radius: 6px;
+    color: #a88a6e;
+    cursor: pointer;
+    font-family: var(--hud-font);
+    font-size: .88rem;
+    padding: .35rem .7rem;
+    transition: background .2s, color .2s, border-color .2s;
+}
+
+.tutorial-back-btn:hover:not(:disabled) {
+    color: var(--hud-color);
+    border-color: #8b6a50;
+    background: rgba(90, 62, 40, .25);
+}
+
+.tutorial-back-btn:disabled {
+    opacity: .3;
+    cursor: default;
+}
+
+.tutorial-skip-btn,
+.tutorial-next-btn {
+    background: linear-gradient(180deg, #3a2418 0%, #261508 100%);
+    border: 1px solid #7a5a43;
+    border-radius: 6px;
+    color: #e8c78e;
+    cursor: pointer;
+    font-family: var(--hud-font);
+    font-size: .88rem;
+    padding: .35rem .85rem;
+    transition: background .2s, color .2s, border-color .2s;
+    box-shadow: inset 0 1px 0 rgba(255, 222, 172, .12);
+}
+
+.tutorial-skip-btn:hover,
+.tutorial-next-btn:hover {
+    color: #fff2cf;
+    border-color: #ba9265;
+    background: linear-gradient(180deg, #5a3520 0%, #3a1f10 100%);
+}
+
+.tutorial-skip-btn {
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: #a88a6e;
+    font-size: .82rem;
+    padding: .35rem .5rem;
+}
+
+.tutorial-skip-btn:hover {
+    color: var(--hud-color);
+    background: none;
+    border: none;
+}
+
+/* ---- Action pill (help + fullscreen) ---- */
+
+.hud-action-pill {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    z-index: 1001;
+    display: inline-flex;
+    align-items: stretch;
+    border-radius: 999px;
+    border: 1px solid var(--hud-border);
+    background: var(--hud-card-bg);
+    box-shadow:
+        0 4px 16px rgba(17, 6, 0, 0.5),
+        inset 0 1px 0 rgba(255, 228, 182, .08);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    user-select: none;
+    transition: border-color .2s;
+}
+
+.hud-action-pill:hover {
+    border-color: #ba9265;
+}
+
+.tutorial-help-btn,
+.tutorial-fullscreen-btn {
+    width: 55px;
+    height: 45px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--hud-color);
+    font-family: var(--hud-title-font);
+    font-size: 1.35rem;
+    cursor: pointer;
+    transition: background .2s, color .15s, width .3s ease, opacity .3s ease, font-size .2s ease;
+}
+
+.tutorial-help-btn:hover,
+.tutorial-fullscreen-btn:hover {
+    background: rgba(90, 62, 40, .35);
+    color: #fff2cf;
+}
+
+
+.tutorial-fullscreen-btn {
+    font-size: 1rem;
+    border-right: 1px solid var(--hud-border);
+    transition: background .2s, color .15s, border-color .2s;
+}
+
+.hud-action-pill:has(.tutorial-help-btn.hidden) .tutorial-fullscreen-btn {
+    border-right: none;
+}
+
+.tutorial-help-btn.hidden {
+    width: 0;
+    font-size: 0;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+@media (max-width: 760px) {
+    .tutorial-panel {
+        width: calc(100vw - 28px);
+        bottom: 68px;   /* 10px base + 44px pill height + 14px gap */
+        left: 10px;
+    }
+
+    .hud-action-pill {
+        bottom: 10px;
+        left: 10px;
     }
 }

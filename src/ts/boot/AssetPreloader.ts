@@ -12,6 +12,7 @@ const STATIC_IMAGE_URLS = [
     "./assets/images/world_map_2.svg",
     "./assets/images/new_world_map.png",
     "./assets/images/ship.svg",
+    "./assets/images/ship2.svg",
 ];
 
 const preloadedImages = new Map<string, HTMLImageElement>();

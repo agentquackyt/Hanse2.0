@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Baskervville:ital,wght@0,400..700;1,400..700&family=Uncial+Antiqua&display=swap"
         rel="stylesheet">
-<link rel="stylesheet" crossorigin href="./index-nwn2y2rp.css"><script type="module" crossorigin src="./index-ns6rwmdz.js"></script></head>
+<link rel="stylesheet" crossorigin href="./index-tn5d1f6q.css"><script type="module" crossorigin src="./index-z8ga6v5n.js"></script></head>
 
 <body>
     <section id="intro" class="screen flex">
@@ -52,6 +52,24 @@
                     <h3 class="hub-info-wealth-value hud-info-value">5000ℳ︁</h3>
                 </div>
             </div>
+        </div>
+        <div id="tutorial-panel" class="tutorial-panel hidden">
+            <div class="tutorial-header">
+                <span class="tutorial-step-label"></span>
+                <button class="tutorial-skip-btn">Skip</button>
+            </div>
+            <h3 class="tutorial-title"></h3>
+            <p class="tutorial-body"></p>
+            <div class="tutorial-footer">
+                <button class="tutorial-back-btn">&larr; Back</button>
+                <button class="tutorial-next-btn">Next &rarr;</button>
+            </div>
+        </div>
+        <div class="hud-action-pill">
+            <button id="fullscreen-btn" class="tutorial-fullscreen-btn" title="Enter Fullscreen">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 5.5V1H5.5M9.5 1H14V5.5M14 9.5V14H9.5M5.5 14H1V9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button id="tutorial-help-btn" class="tutorial-help-btn hidden" title="Show Tutorial">?</button>
         </div>
         <canvas id="world-map"></canvas>
         <div class="modal hidden">

@@ -10,7 +10,7 @@ const MAX_ZOOM = 3.0;
 const SMOOTH_SAMPLES = 6;
 const WORLD_MAP_URL = "./assets/images/world_map.svg";
 const BACKGROUND_TEXTURE_URL = "./assets/images/texture_background.webp";
-const SHIP_SPRITE_URL = "./assets/images/ship.svg";
+const SHIP_SPRITE_URL = "./assets/images/ship2.svg";
 const DEFAULT_MAP_ASPECT_RATIO = 196.45584 / 111.70967;
 
 interface Pt { readonly x: number; readonly y: number }
@@ -442,18 +442,18 @@ export class MapRenderSystem extends TickSystem {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-            const scale = hasPlayerDocked ? 1.2 : 1.0;
-            const outerRadius = (this._zoom > 1.5 ? 11 : 8.5) * scale;
+            const scale = hasPlayerDocked ? 1.3 : hasKontor ? 1.2 : 1.0;
+            const outerRadius = (this._zoom > 1.5 ? 11  : 8.5) * scale;
             const innerRadius = (this._zoom > 1.5 ? 6.5 : 5) * scale;
             const coreRadius  = (this._zoom > 1.5 ? 3.1 : 2.4) * scale;
 
             // Outer glow
             ctx.beginPath();
             ctx.arc(sx, sy, outerRadius + 3, 0, Math.PI * 2);
-            ctx.fillStyle = hasKontor
-                ? "rgba(220, 60, 60, 0.20)"
-                : hasPlayerDocked
-                    ? "rgba(98, 139, 233, 0.18)"
+            ctx.fillStyle = hasPlayerDocked
+                ? "rgba(98, 139, 233, 0.18)"
+                : hasKontor
+                    ? "rgba(220, 60, 60, 0.20)"
                     : "rgba(240, 200, 120, 0.14)";
             ctx.fill();
 
@@ -461,8 +461,8 @@ export class MapRenderSystem extends TickSystem {
             ctx.beginPath();
             ctx.arc(sx, sy, outerRadius, 0, Math.PI * 2);
             const outerGradient = ctx.createRadialGradient(sx - 2, sy - 3, 1, sx, sy, outerRadius);
-            outerGradient.addColorStop(0, hasKontor ? "#e4acac" : hasPlayerDocked ? "#acb6e4" : "#dcb98a");
-            outerGradient.addColorStop(0.55, hasKontor ? "#b84f4f" : hasPlayerDocked ? "#4f76b8" : "#a8784b");
+            outerGradient.addColorStop(0, hasPlayerDocked ? "#acb6e4" : hasKontor ? "#e4acac" : "#dcb98a");
+            outerGradient.addColorStop(0.55,  hasPlayerDocked ? "#4f76b8" : hasKontor ? "#b84f4f" : "#a8784b");
             outerGradient.addColorStop(1, "#8f6741");
             ctx.fillStyle = outerGradient;
             ctx.fill();
@@ -474,15 +474,15 @@ export class MapRenderSystem extends TickSystem {
             ctx.beginPath();
             ctx.arc(sx, sy, innerRadius, 0, Math.PI * 2);
             const innerGradient = ctx.createRadialGradient(sx - 1, sy - 2, 1, sx, sy, innerRadius);
-            innerGradient.addColorStop(0, hasKontor ? "#f89898" : hasPlayerDocked ? "#8890f8" : "#f3d7ab");
-            innerGradient.addColorStop(1, hasKontor ? "#7a2d2d" : hasPlayerDocked ? "#4660ac" : "#7a4d2d");
+            innerGradient.addColorStop(0,  hasPlayerDocked ? "#8890f8" : hasKontor ? "#f89898" : "#f3d7ab");
+            innerGradient.addColorStop(1,  hasPlayerDocked ? "#4660ac" : hasKontor ? "#7a2d2d" : "#7a4d2d");
             ctx.fillStyle = innerGradient;
             ctx.fill();
 
             // Core marker
             ctx.beginPath();
             ctx.arc(sx, sy, coreRadius, 0, Math.PI * 2);
-            ctx.fillStyle = hasKontor ? "#7c2424" : hasPlayerDocked ? "#244c7c" : "#7a4d2d";
+            ctx.fillStyle = hasKontor ? "#8a2828" : hasPlayerDocked ? "#244c7c" : "#7a4d2d";
             ctx.fill();
 
 
@@ -505,8 +505,8 @@ export class MapRenderSystem extends TickSystem {
 
     private _drawShips(): void {
         const ctx = this._ctx;
-        const SHIP_W = 40/3*2;
-        const SHIP_H = 36/3*2;
+        const SHIP_W = 36;
+        const SHIP_H = 36;
         for (const entity of this.world.query(Position, Ship)) {
             const pos = entity.getComponent(Position)!;
             const isPlayer = entity.hasComponent(PlayerControlled);
@@ -548,14 +548,45 @@ export class MapRenderSystem extends TickSystem {
             ctx.restore();
 
             const name = entity.getComponent(Name);
-            if (name && this._zoom > 2.5) {
+            if (name /* && this._zoom > 1.3*/) {
                 ctx.save();
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.font = "14px sans-serif";
-                ctx.fillStyle = isPlayer ? "#8dcfff" : "#ffcc88";
+                ctx.font = "bold 14px 'Uncial Antiqua', serif";
+                ctx.fillStyle = isPlayer ? "#f3dcb6" : "#ffcc88";
                 ctx.shadowColor = "#000";
                 ctx.shadowBlur = 3;
-                ctx.fillText(name.value, sx + 30, sy+10);
+
+                const MAX_NAME_WIDTH = 90;
+                const LINE_HEIGHT = 15;
+                const label = name.value;
+                const textX = sx + 25;
+
+                if (ctx.measureText(label).width <= MAX_NAME_WIDTH) {
+                    ctx.fillText(label, textX, sy + 5);
+                } else {
+                    // Split at the last space that keeps the first line within MAX_NAME_WIDTH.
+                    const words = label.split(" ");
+                    let line1 = "";
+                    let splitIdx = 0;
+                    for (let wi = 0; wi < words.length; wi++) {
+                        const test = wi === 0 ? words[wi]! : line1 + " " + words[wi]!;
+                        if (ctx.measureText(test).width <= MAX_NAME_WIDTH) {
+                            line1 = test;
+                            splitIdx = wi + 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    // If no split point found (single very long word), just use the whole label on one line.
+                    if (splitIdx === 0 || splitIdx >= words.length) {
+                        ctx.fillText(label, textX, sy + 5);
+                    } else {
+                        const line2 = words.slice(splitIdx).join(" ");
+                        ctx.fillText(line1, textX, sy - LINE_HEIGHT / 2 + 5);
+                        ctx.fillText(line2, textX, sy + LINE_HEIGHT / 2 + 5);
+                    }
+                }
+
                 ctx.shadowBlur = 0;
                 ctx.restore();
             }
