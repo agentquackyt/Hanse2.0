@@ -11,7 +11,7 @@ import { SatisfactionAlgorithm } from "../algorithms/SatisfactionAlgorithm";
  * Production & demand system. Each tick:
  *
  * 1) **Production** — for every good the city produces:
- *    `amount = baseProduction × (citizens / 10) × cityMultiplier × (elapsed / REAL_SECONDS_PER_DAY)`
+ *    `amount = baseProduction × (citizens / 10) × cityMultiplier × (elapsed / REAL_SECONDS_PER_DAY) / 7`
  *    Time-scaled so production rate is comparable to demand consumption rate.
  *    If the good has a recipe, required ingredients are deducted from the
  *    market first. Production is **blocked** when any ingredient is missing.
@@ -41,7 +41,7 @@ export class MarketSystem extends TickSystem {
                 if (!good) continue;
 
                 const baseProduction = registry.getBaseProduction(goodName);
-                const amount = baseProduction * (citizens / 10) * cityMultiplier * (elapsed / REAL_SECONDS_PER_DAY);
+                const amount = baseProduction * (citizens / 10) * cityMultiplier * (elapsed / REAL_SECONDS_PER_DAY) / DEMAND_DAYS_PER_WEEK;
                 if (amount <= 0) continue;
 
                 const recipe = registry.getRecipe(goodName);
@@ -81,7 +81,7 @@ export class MarketSystem extends TickSystem {
                 const recipe = registry.getRecipe(goodName);
                 if (!recipe) continue;
                 const baseProduction = registry.getBaseProduction(goodName);
-                const weeklyProduction = baseProduction * (citizens / 10) * cityMultiplier * DEMAND_DAYS_PER_WEEK;
+                const weeklyProduction = baseProduction * (citizens / 10) * cityMultiplier;
                 for (const [ingredientName, ratio] of Object.entries(recipe.ingredients)) {
                     const ingredientGood = registry.getGood(ingredientName);
                     if (!ingredientGood) continue;

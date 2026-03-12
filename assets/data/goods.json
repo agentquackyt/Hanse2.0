@@ -6,7 +6,7 @@
       "PP": 75,
       "BP": 90,
       "SP": 135,
-      "base_demand": 8
+      "base_demand": 5
     },
     {
       "name": "Furs",
@@ -30,7 +30,7 @@
       "PP": 33,
       "BP": 40,
       "SP": 59,
-      "base_demand": 9
+      "base_demand": 8
     },
     {
       "name": "Spices",
@@ -46,7 +46,7 @@
       "PP": 33,
       "BP": 40,
       "SP": 59,
-      "base_demand": 0
+      "base_demand": 1
     },
     {
       "name": "Wood",
@@ -62,7 +62,7 @@
       "PP": 50,
       "BP": 60,
       "SP": 90,
-      "base_demand": 4
+      "base_demand": 3
     },
     {
       "name": "Cheese",
@@ -78,7 +78,7 @@
       "PP": 350,
       "BP": 420,
       "SP": 630,
-      "base_demand": 3
+      "base_demand": 4
     },
     {
       "name": "Mead",
@@ -102,7 +102,7 @@
       "PP": 167,
       "BP": 200,
       "SP": 301,
-      "base_demand": 4
+      "base_demand": 5
     },
     {
       "name": "Pitch",
@@ -126,7 +126,7 @@
       "PP": 129,
       "BP": 155,
       "SP": 232,
-      "base_demand": 8
+      "base_demand": 6
     },
     {
       "name": "Cloth",
@@ -150,7 +150,7 @@
       "PP": 50,
       "BP": 60,
       "SP": 90,
-      "base_demand": 0
+      "base_demand": 1
     },
     {
       "name": "Bricks",
@@ -158,7 +158,7 @@
       "PP": 33,
       "BP": 40,
       "SP": 59,
-      "base_demand": 0
+      "base_demand": 2
     }
   ],
   "recipes": [

@@ -398,7 +398,7 @@ export class HUDcontroller {
                 <tr>
                     <th>Good</th>
                     <th>Stock</th>
-                    <th>Demand</th>
+                    <th>Demand / week</th>
                     <th>Price</th>
                 </tr>
             </thead>
@@ -493,13 +493,16 @@ export class HUDcontroller {
             }
 
             for (const [good, state] of cityMarketStates) {
-                const stock = Math.round(market?.getEntry(good)?.supply ?? 0);
-                const demandedAmount = good.base_demand * cityComp.population / 1000;
+                const marketEntry = market?.getEntry(good);
+                const stock = Math.round(marketEntry?.supply ?? 0);
+                const weeklyDemand = marketEntry?.demand && marketEntry.demand > 0
+                    ? marketEntry.demand
+                    : demandAlgorithm(good, cityComp.population);
                 const currentPrice = market?.currentPrice(good) ?? 0;
                 state.stockValue.textContent = `${stock}`;
-                state.demandValue.textContent = demandedAmount >= 10
-                    ? `${Math.round(demandedAmount)}`
-                    : demandedAmount.toFixed(1);
+                state.demandValue.textContent = weeklyDemand >= 10
+                    ? `${Math.round(weeklyDemand)}`
+                    : weeklyDemand.toFixed(1);
                 state.priceValue.textContent = `${currentPrice} marks`;
             }
         };
@@ -580,10 +583,13 @@ export class HUDcontroller {
                 if (!good) continue;
                 const multiplier = production.multipliers.get(goodName) ?? 0;
                 const baseProd = registry.getBaseProduction(goodName);
-                const dailyRate = baseProd * (production.citizens / 10) * multiplier;
-                const weeklyDemand = demandAlgorithm(good, production.citizens);
-                const supply = Math.round(market.getEntry(good)?.supply ?? 0);
-                state.rateValue.textContent = `${dailyRate.toFixed(1)}/day`;
+                const weeklyRate = baseProd * (production.citizens / 10) * multiplier;
+                const marketEntry = market.getEntry(good);
+                const weeklyDemand = marketEntry?.demand && marketEntry.demand > 0
+                    ? marketEntry.demand
+                    : demandAlgorithm(good, production.citizens);
+                const supply = Math.round(marketEntry?.supply ?? 0);
+                state.rateValue.textContent = `${weeklyRate.toFixed(1)}/week`;
                 state.stockValue.textContent = `${supply} stock  (demand ${weeklyDemand}/week)`;
             }
         };
