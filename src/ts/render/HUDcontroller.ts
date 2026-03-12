@@ -1,9 +1,13 @@
 import type { Entity } from "../ecs/Entity";
-import { City, Market, Name, Inventory, Ship, Gold, CityProduction, Kontor, PlayerControlled, IsPlayerOwned, type TradeGood } from "../gameplay/components";
+import type { World } from "../ecs/Engine";
+import { City, Market, Name, Inventory, Ship, ShipType, Gold, CityProduction, Kontor, PlayerControlled, IsPlayerOwned, type TradeGood, Position, TravelRoute, ShipBuildOrder } from "../gameplay/components";
 import type { TradeSystem } from "../gameplay/systems";
-import { GoodsRegistry } from "../gameplay/GoodsRegistry";
+import { GoodsRegistry, type ShipTypeConfig } from "../gameplay/GoodsRegistry";
+import type { ShipClassName } from "../gameplay/components/identity";
 import { demandAlgorithm } from "../gameplay/algorithms/EconomyAlgorithms";
 import { SatisfactionAlgorithm, SatisfactionLevel, GROWTH_BASE_PER_WEEK } from "../gameplay/algorithms/SatisfactionAlgorithm";
+import { GameTime, REAL_SECONDS_PER_DAY } from "../gameplay/GameTime";
+import { Entity as EntityClass } from "../ecs/Entity";
 
 /** Map a slider value (0–100) to a quantity via log scale. */
 function sliderQty(v: number, maxQty: number): number {
@@ -27,7 +31,17 @@ export class HUDcontroller {
     private _tradeSystem: TradeSystem | null = null;
     private _playerShip: Entity | null = null;
     private _playerCompany: Entity | null = null;
+    private _world: World | null = null;
     private _activeModalRefresh: (() => void) | null = null;
+    private _activeModalRealtimeRefresh: (() => void) | null = null;
+    private _shipPanelName: HTMLElement;
+    private _shipPanelType: HTMLElement;
+    private _shipPanelPort: HTMLElement;
+    private _shipPanelCargo: HTMLElement;
+    private _shipPanelCargoFill: HTMLElement;
+    private _shipPanelInventoryCount: HTMLElement;
+    private _shipPanelInventory: HTMLElement;
+    private _shipPanelEmpty: HTMLElement;
     static _instance: any;
 
     private constructor() {
@@ -36,6 +50,14 @@ export class HUDcontroller {
         this._citizensElement = document.querySelector(".hub-info-city-citizens") as HTMLElement;
         this._playtimeElement = document.querySelector(".hub-info-playtime") as HTMLElement;
         this._wealthElement = document.querySelector(".hub-info-wealth-value") as HTMLElement;
+        this._shipPanelName = document.querySelector(".ship-panel-name") as HTMLElement;
+        this._shipPanelType = document.querySelector(".ship-panel-type") as HTMLElement;
+        this._shipPanelPort = document.querySelector(".ship-panel-port") as HTMLElement;
+        this._shipPanelCargo = document.querySelector(".ship-panel-cargo") as HTMLElement;
+        this._shipPanelCargoFill = document.querySelector(".ship-panel-cargo-fill") as HTMLElement;
+        this._shipPanelInventoryCount = document.querySelector(".ship-panel-inventory-count") as HTMLElement;
+        this._shipPanelInventory = document.querySelector(".ship-panel-inventory") as HTMLElement;
+        this._shipPanelEmpty = document.querySelector(".ship-panel-empty") as HTMLElement;
     }
 
     public static getInstance(): HUDcontroller {
@@ -58,9 +80,20 @@ export class HUDcontroller {
         this._refreshHudWealth();
     }
 
+    public setWorld(world: World): void {
+        this._world = world;
+    }
+
     public updateGameTime(label: string): void {
         if (this._playtimeElement) {
             this._playtimeElement.textContent = label;
+        }
+        this._activeModalRealtimeRefresh?.();
+    }
+
+    private _refreshActiveShipPanel(): void {
+        if (this._playerShip && this._world) {
+            this.updateShipPanel(this._playerShip, this._world);
         }
     }
 
@@ -85,6 +118,7 @@ export class HUDcontroller {
     /** Called after any data mutation (trade, production tick) to refresh HUD + open modal. */
     public notifyDataChange(): void {
         this._refreshHudWealth();
+        this._refreshActiveShipPanel();
         // Refresh the open modal if any.
         this._activeModalRefresh?.();
     }
@@ -96,6 +130,7 @@ export class HUDcontroller {
         if (this._cityNameElement) this._cityNameElement.textContent = cityName;
         if (this._citizensElement) this._citizensElement.textContent = `${citizens} citizens`;
         this._refreshHudWealth();
+        this._refreshActiveShipPanel();
     }
 
     public updateOnSeaInfo(ship: Entity): void {
@@ -114,6 +149,9 @@ export class HUDcontroller {
             }
             this._citizensElement.classList.add("on-sea");
         }
+        if (ship === this._playerShip) {
+            this._refreshActiveShipPanel();
+        }
     }
 
     public setOnSeaState(isOnSea: boolean): void {
@@ -122,10 +160,11 @@ export class HUDcontroller {
 
     // ------------------------------------------------------------------ Modal
 
-    public createCityOverviewModal(city: Entity, playerShip: Entity | null, kontorEntity: Entity | null): void {
+    public createCityOverviewModal(city: Entity, dockedShips: Entity[], selectedShip: Entity | null, kontorEntity: Entity | null): void {
         // Remove any existing modal.
         document.querySelector(".modal:not(.hidden)")?.remove();
         this._activeModalRefresh = null;
+        this._activeModalRealtimeRefresh = null;
 
         const cityComp = city.getComponent(City);
         const nameComp = city.getComponent(Name);
@@ -138,52 +177,66 @@ export class HUDcontroller {
         const allGoods = registry.getAllGoods();
 
         type EndpointKind = "harbor" | "ship" | "kontor";
+        type EndpointId = "harbor" | "kontor" | `ship:${string}`;
         interface EndpointOption {
-            id: EndpointKind;
+            id: EndpointId;
+            kind: EndpointKind;
             label: string;
             entity: Entity | null;
         }
 
         const endpointOptions: EndpointOption[] = [
-            { id: "harbor", label: "Harbor", entity: city },
-            ...(playerShip ? [{ id: "ship" as const, label: "Ship", entity: playerShip }] : []),
-            ...(kontorEntity ? [{ id: "kontor" as const, label: "Kontor", entity: kontorEntity }] : []),
+            { id: "harbor", kind: "harbor", label: "Harbor", entity: city },
+            ...dockedShips.map(ship => ({
+                id: `ship:${ship.id}` as const,
+                kind: "ship" as const,
+                label: ship.getComponent(Name)?.value ?? `Ship ${ship.id}`,
+                entity: ship,
+            })),
+            ...(kontorEntity ? [{ id: "kontor" as const, kind: "kontor" as const, label: "Kontor", entity: kontorEntity }] : []),
         ];
 
-        let leftEndpointId: EndpointKind = "harbor";
-        let rightEndpointId: EndpointKind = playerShip ? "ship" : "kontor";
+        const defaultShipEndpointId = selectedShip ? (`ship:${selectedShip.id}` as const) : null;
+        const firstNonHarborEndpointId = endpointOptions.find(option => option.kind !== "harbor")?.id ?? "harbor";
+
+        let leftEndpointId: EndpointId = "harbor";
+        let rightEndpointId: EndpointId = defaultShipEndpointId ?? (kontorEntity ? "kontor" : firstNonHarborEndpointId);
 
         const cleanupCallbacks: Array<() => void> = [];
 
-        const getEndpoint = (id: EndpointKind): EndpointOption =>
+        const getEndpoint = (id: EndpointId): EndpointOption =>
             endpointOptions.find(option => option.id === id) ?? endpointOptions[0]!;
 
-        const getEndpointInventory = (id: EndpointKind): Inventory | null =>
+        const isHarborEndpoint = (id: EndpointId): boolean => getEndpoint(id).kind === "harbor";
+        const isShipEndpoint = (id: EndpointId): boolean => getEndpoint(id).kind === "ship";
+        const isKontorEndpoint = (id: EndpointId): boolean => getEndpoint(id).kind === "kontor";
+
+        const getEndpointInventory = (id: EndpointId): Inventory | null =>
             getEndpoint(id).entity?.getComponent(Inventory) ?? null;
 
-        const getEndpointGold = (id: EndpointKind): Gold | null =>
+        const getEndpointGold = (id: EndpointId): Gold | null =>
             this._resolveEndpointGold(getEndpoint(id).entity);
 
-        const getEndpointCapacity = (id: EndpointKind): number => {
-            if (id === "ship") {
-                const shipComp = playerShip?.getComponent(Ship);
+        const getEndpointCapacity = (id: EndpointId): number => {
+            if (isShipEndpoint(id)) {
+                const shipComp = getEndpoint(id).entity?.getComponent(Ship);
                 return shipComp ? shipComp.cargoCapacity : Infinity;
             }
-            if (id === "kontor") {
+            if (isKontorEndpoint(id)) {
                 const kontorComp = kontorEntity?.getComponent(Kontor);
                 return kontorComp ? kontorComp.capacity : Infinity;
             }
             return Infinity;
         };
 
-        const getEndpointFreeCapacity = (id: EndpointKind): number => {
-            if (id === "harbor") return Infinity;
+        const getEndpointFreeCapacity = (id: EndpointId): number => {
+            if (isHarborEndpoint(id)) return Infinity;
             const inventory = getEndpointInventory(id);
             return Math.max(0, getEndpointCapacity(id) - (inventory?.totalUnits() ?? 0));
         };
 
-        const getHeldQuantity = (id: EndpointKind, good: TradeGood): number => {
-            if (id === "harbor") {
+        const getHeldQuantity = (id: EndpointId, good: TradeGood): number => {
+            if (isHarborEndpoint(id)) {
                 return Math.max(0, Math.floor(market?.getEntry(good)?.supply ?? 0));
             }
             return getEndpointInventory(id)?.get(good) ?? 0;
@@ -194,8 +247,8 @@ export class HUDcontroller {
             return market.currentPrice(good) * quantity;
         };
 
-        const getMaxAffordableQty = (good: TradeGood, buyerId: EndpointKind, availableQty: number): number => {
-            if (buyerId === "harbor") return availableQty;
+        const getMaxAffordableQty = (good: TradeGood, buyerId: EndpointId, availableQty: number): number => {
+            if (isHarborEndpoint(buyerId)) return availableQty;
             const buyerGold = getEndpointGold(buyerId)?.amount ?? 0;
             if (buyerGold <= 0) return 0;
 
@@ -213,9 +266,9 @@ export class HUDcontroller {
             return low;
         };
 
-        const getSummaryText = (id: EndpointKind): string => {
+        const getSummaryText = (id: EndpointId): string => {
             const option = getEndpoint(id);
-            if (id === "harbor") {
+            if (option.kind === "harbor") {
                 let totalStock = 0;
                 if (market) {
                     for (const [, entry] of market.goods()) totalStock += Math.floor(entry.supply);
@@ -230,15 +283,15 @@ export class HUDcontroller {
             return `${option.label}: ${gold}£ · ${units}/${capacity === Infinity ? "∞" : capacity} cargo`;
         };
 
-        const getDirectionalMode = (sourceId: EndpointKind, targetId: EndpointKind): "trade-buy" | "trade-sell" | "transfer" | "none" => {
+        const getDirectionalMode = (sourceId: EndpointId, targetId: EndpointId): "trade-buy" | "trade-sell" | "transfer" | "none" => {
             if (sourceId === targetId) return "none";
-            if (sourceId === "harbor" && targetId !== "harbor") return "trade-buy";
-            if (sourceId !== "harbor" && targetId === "harbor") return "trade-sell";
-            if (sourceId !== "harbor" && targetId !== "harbor") return "transfer";
+            if (isHarborEndpoint(sourceId) && !isHarborEndpoint(targetId)) return "trade-buy";
+            if (!isHarborEndpoint(sourceId) && isHarborEndpoint(targetId)) return "trade-sell";
+            if (!isHarborEndpoint(sourceId) && !isHarborEndpoint(targetId)) return "transfer";
             return "none";
         };
 
-        const getMaxDirectionalQty = (good: TradeGood, sourceId: EndpointKind, targetId: EndpointKind): number => {
+        const getMaxDirectionalQty = (good: TradeGood, sourceId: EndpointId, targetId: EndpointId): number => {
             if (sourceId === targetId) return 0;
 
             const sourceQty = getHeldQuantity(sourceId, good);
@@ -247,21 +300,21 @@ export class HUDcontroller {
             const targetCapacity = getEndpointFreeCapacity(targetId);
             let maxQty = Math.min(sourceQty, targetCapacity);
 
-            if (sourceId === "harbor" && targetId !== "harbor") {
+            if (isHarborEndpoint(sourceId) && !isHarborEndpoint(targetId)) {
                 maxQty = Math.min(maxQty, getMaxAffordableQty(good, targetId, sourceQty));
             }
 
             return Math.max(0, maxQty);
         };
 
-        const getDirectionalQuote = (good: TradeGood, quantity: number, sourceId: EndpointKind, targetId: EndpointKind): number => {
+        const getDirectionalQuote = (good: TradeGood, quantity: number, sourceId: EndpointId, targetId: EndpointId): number => {
             const mode = getDirectionalMode(sourceId, targetId);
             if (mode === "trade-buy") return quoteHarborTransfer(good, quantity, "buy");
             if (mode === "trade-sell") return quoteHarborTransfer(good, quantity, "sell");
             return 0;
         };
 
-        const executeDirectionalTransfer = (good: TradeGood, quantity: number, sourceId: EndpointKind, targetId: EndpointKind): boolean => {
+        const executeDirectionalTransfer = (good: TradeGood, quantity: number, sourceId: EndpointId, targetId: EndpointId): boolean => {
             if (quantity <= 0 || sourceId === targetId) return false;
 
             const mode = getDirectionalMode(sourceId, targetId);
@@ -338,6 +391,7 @@ export class HUDcontroller {
         const tabBar = document.createElement("div");
         tabBar.classList.add("modal-tabs");
         const tabs = ["City", "Production", "Trade"] as const;
+        let activeTab: Lowercase<typeof tabs[number]> = "city";
         const panels: HTMLElement[] = [];
 
         for (const t of tabs) {
@@ -569,6 +623,141 @@ export class HUDcontroller {
         productionEmptyState.textContent = "No production data.";
         prodPanel.appendChild(productionEmptyState);
 
+        // ---- Shipyard Section ----
+        const shipyardSection = document.createElement("section");
+        shipyardSection.classList.add("shipyard-section");
+        const shipyardTitle = document.createElement("h3");
+        shipyardTitle.classList.add("shipyard-title");
+        shipyardTitle.textContent = "Shipyard";
+        shipyardSection.appendChild(shipyardTitle);
+
+        const shipyardGrid = document.createElement("div");
+        shipyardGrid.classList.add("shipyard-grid");
+        shipyardSection.appendChild(shipyardGrid);
+
+        const shipyardActiveOrder = document.createElement("div");
+        shipyardActiveOrder.classList.add("shipyard-active-order");
+        shipyardSection.appendChild(shipyardActiveOrder);
+
+        prodPanel.appendChild(shipyardSection);
+
+        const findActiveBuildOrder = (): Entity | null => {
+            if (!this._world) return null;
+            const orders = this._world.query(ShipBuildOrder);
+            return orders.find(e => {
+                const order = e.getComponent(ShipBuildOrder)!;
+                return order.cityEntityId === city.id && !order.complete;
+            }) ?? null;
+        };
+
+        const buildShipyardCards = () => {
+            shipyardGrid.innerHTML = "";
+            shipyardActiveOrder.innerHTML = "";
+
+            const activeOrderEntity = findActiveBuildOrder();
+
+            if (activeOrderEntity) {
+                // Show active order progress instead of cards.
+                shipyardGrid.classList.add("hidden");
+                const order = activeOrderEntity.getComponent(ShipBuildOrder)!;
+                const progress = document.createElement("div");
+                progress.classList.add("shipyard-progress");
+
+                const header = document.createElement("p");
+                header.innerHTML = `<strong>Building: ${order.shipType}</strong>`;
+                progress.appendChild(header);
+
+                // Material status
+                for (const [matName, required] of order.materialsRequired) {
+                    const collected = order.materialsCollected.get(matName) ?? 0;
+                    const p = document.createElement("p");
+                    const ok = collected >= required;
+                    p.innerHTML = `<span class="${ok ? "material-ok" : "material-short"}">${matName}: ${collected}/${required}</span>`;
+                    progress.appendChild(p);
+                }
+
+                if (order.buildStartRealSeconds !== null) {
+                    const elapsed = GameTime.getInstance().elapsedRealSeconds - order.buildStartRealSeconds;
+                    const remaining = Math.max(0, order.buildDurationRealSeconds - elapsed);
+                    const remainingDays = (remaining / REAL_SECONDS_PER_DAY).toFixed(1);
+                    const pct = Math.min(100, (elapsed / order.buildDurationRealSeconds) * 100);
+                    const status = document.createElement("p");
+                    status.textContent = `Under construction — ${remainingDays} days remaining`;
+                    progress.appendChild(status);
+
+                    const bar = document.createElement("div");
+                    bar.classList.add("shipyard-progress-bar");
+                    const fill = document.createElement("div");
+                    fill.classList.add("shipyard-progress-fill");
+                    fill.style.width = `${pct}%`;
+                    bar.appendChild(fill);
+                    progress.appendChild(bar);
+                } else {
+                    const status = document.createElement("p");
+                    status.textContent = "Gathering materials…";
+                    progress.appendChild(status);
+                }
+
+                shipyardActiveOrder.appendChild(progress);
+                return;
+            }
+
+            shipyardGrid.classList.remove("hidden");
+            const allShipTypes = registry.getAllShipTypes();
+            const companyGold = this._getPlayerCompanyGold()?.amount ?? 0;
+
+            for (const [typeName, cfg] of allShipTypes) {
+                const expectedMaterialCost = Object.entries(cfg.materials).reduce((sum, [matName, qty]) => {
+                    const good = registry.getGood(matName);
+                    if (!good) return sum;
+                    const unitPrice = market?.currentPrice(good) ?? good.buyPrice;
+                    return sum + unitPrice * qty;
+                }, 0);
+
+                const card = document.createElement("article");
+                card.classList.add("shipyard-card");
+
+                const name = document.createElement("h4");
+                name.classList.add("shipyard-card-name");
+                name.textContent = typeName;
+                card.appendChild(name);
+
+                const stats = document.createElement("p");
+                stats.classList.add("shipyard-card-stats");
+                const speedLabel = cfg.speed >= 0.04 ? "Fast" : cfg.speed >= 0.03 ? "Medium" : "Slow";
+                stats.innerHTML = `Cargo: ${cfg.capacity} · Speed: ${speedLabel}<br>Cost: ${cfg.goldCost.toLocaleString()}£`;
+                card.appendChild(stats);
+
+                const matList = document.createElement("ul");
+                matList.classList.add("shipyard-card-materials");
+                for (const [matName, qty] of Object.entries(cfg.materials)) {
+                    const li = document.createElement("li");
+                    li.textContent = `${matName}: ${qty}`;
+                    matList.appendChild(li);
+                }
+                card.appendChild(matList);
+
+                const materialCost = document.createElement("p");
+                materialCost.classList.add("shipyard-card-material-cost");
+                materialCost.textContent = `Expected material cost: ${Math.round(expectedMaterialCost).toLocaleString()}£`;
+                card.appendChild(materialCost);
+
+                const btn = document.createElement("button");
+                btn.classList.add("shipyard-order-btn");
+                btn.textContent = `Order ${typeName}`;
+                btn.disabled = companyGold < cfg.goldCost;
+                btn.addEventListener("click", () => {
+                    this._placeShipBuildOrder(city, typeName, cfg);
+                    buildShipyardCards();
+                    this._refreshHudWealth();
+                });
+                card.appendChild(btn);
+                shipyardGrid.appendChild(card);
+            }
+        };
+
+        buildShipyardCards();
+
         const refreshProductionPanel = () => {
             const hasProductionData = !!production && !!market && productionStates.size > 0;
             productionGrid.classList.toggle("hidden", !hasProductionData);
@@ -592,6 +781,8 @@ export class HUDcontroller {
                 state.rateValue.textContent = `${weeklyRate.toFixed(1)}/week`;
                 state.stockValue.textContent = `${supply} stock  (demand ${weeklyDemand}/week)`;
             }
+
+            buildShipyardCards();
         };
         refreshProductionPanel();
         panels.push(prodPanel);
@@ -703,41 +894,41 @@ export class HUDcontroller {
         cleanupCallbacks.push(() => document.removeEventListener("click", onDocumentClick));
 
         const getShipSummaryText = (): string => {
-            if (playerShip) return getSummaryText("ship");
+            if (defaultShipEndpointId) return getSummaryText(defaultShipEndpointId);
             if (kontorEntity) return getSummaryText("kontor");
             return getSummaryText(rightEndpointId);
         };
 
-        const getLeftMenuOptions = (): EndpointKind[] =>
+        const getLeftMenuOptions = (): EndpointId[] =>
             endpointOptions
                 .map(option => option.id)
                 .filter(id => id !== rightEndpointId);
 
-        const getRightMenuOptions = (): EndpointKind[] =>
+        const getRightMenuOptions = (): EndpointId[] =>
             endpointOptions
                 .map(option => option.id)
-                .filter(id => id !== "harbor" && id !== leftEndpointId);
+                .filter(id => !isHarborEndpoint(id) && id !== leftEndpointId);
 
         const ensureValidEndpoints = (): void => {
-            if (rightEndpointId === "harbor") {
+            if (isHarborEndpoint(rightEndpointId)) {
                 const previousLeft = leftEndpointId;
                 leftEndpointId = "harbor";
-                rightEndpointId = previousLeft === "harbor"
-                    ? (endpointOptions.find(option => option.id !== "harbor")?.id ?? "harbor")
+                rightEndpointId = isHarborEndpoint(previousLeft)
+                    ? (endpointOptions.find(option => option.kind !== "harbor")?.id ?? "harbor")
                     : previousLeft;
             }
 
             if (leftEndpointId === rightEndpointId) {
-                rightEndpointId = endpointOptions.find(option => option.id !== "harbor" && option.id !== leftEndpointId)?.id
+                rightEndpointId = endpointOptions.find(option => option.kind !== "harbor" && option.id !== leftEndpointId)?.id
                     ?? rightEndpointId;
             }
 
-            if (leftEndpointId === "harbor" && rightEndpointId === "harbor") {
-                rightEndpointId = endpointOptions.find(option => option.id !== "harbor")?.id ?? "harbor";
+            if (isHarborEndpoint(leftEndpointId) && isHarborEndpoint(rightEndpointId)) {
+                rightEndpointId = endpointOptions.find(option => option.kind !== "harbor")?.id ?? "harbor";
             }
 
-            if (leftEndpointId !== "harbor" && rightEndpointId === leftEndpointId) {
-                rightEndpointId = endpointOptions.find(option => option.id !== "harbor" && option.id !== leftEndpointId)?.id
+            if (!isHarborEndpoint(leftEndpointId) && rightEndpointId === leftEndpointId) {
+                rightEndpointId = endpointOptions.find(option => option.kind !== "harbor" && option.id !== leftEndpointId)?.id
                     ?? rightEndpointId;
             }
         };
@@ -749,13 +940,13 @@ export class HUDcontroller {
             rightSelect.label.textContent = getEndpoint(rightEndpointId).label;
 
             leftSelect.menu.querySelectorAll<HTMLElement>(".custom-select-option").forEach(option => {
-                const optionId = option.dataset.value as EndpointKind;
+                const optionId = option.dataset.value as EndpointId;
                 const allowed = getLeftMenuOptions().includes(optionId);
                 option.classList.toggle("hidden", !allowed);
                 option.classList.toggle("is-active", optionId === leftEndpointId);
             });
             rightSelect.menu.querySelectorAll<HTMLElement>(".custom-select-option").forEach(option => {
-                const optionId = option.dataset.value as EndpointKind;
+                const optionId = option.dataset.value as EndpointId;
                 const allowed = getRightMenuOptions().includes(optionId);
                 option.classList.toggle("hidden", !allowed);
                 option.classList.toggle("is-active", optionId === rightEndpointId);
@@ -1054,7 +1245,7 @@ export class HUDcontroller {
 
             infoLeftText.textContent = getSummaryText(leftEndpointId);
             infoRightText.textContent = getSummaryText(rightEndpointId);
-            infoRow.classList.toggle("hidden", !((leftEndpointId === "ship" && rightEndpointId === "kontor") || (leftEndpointId === "kontor" && rightEndpointId === "ship")));
+            infoRow.classList.toggle("hidden", !((isShipEndpoint(leftEndpointId) && isKontorEndpoint(rightEndpointId)) || (isKontorEndpoint(leftEndpointId) && isShipEndpoint(rightEndpointId))));
 
             headerLeftValue.textContent = getEndpoint(leftEndpointId).label;
             headerSellLabel.textContent = `${getEndpoint(rightEndpointId).label} → ${getEndpoint(leftEndpointId).label}`;
@@ -1081,6 +1272,7 @@ export class HUDcontroller {
                 tabBar.querySelectorAll(".modal-tab").forEach(b => b.classList.remove("active"));
                 btn.classList.add("active");
                 const target = btn.dataset.tab!;
+                activeTab = target as Lowercase<typeof tabs[number]>;
                 for (const p of panels) {
                     p.classList.toggle("hidden", p.id !== `panel-${target}`);
                 }
@@ -1099,6 +1291,7 @@ export class HUDcontroller {
             modal.remove();
             this._isShowingModal = false;
             this._activeModalRefresh = null;
+            this._activeModalRealtimeRefresh = null;
             document.removeEventListener("keydown", escHandler);
             for (const cleanup of cleanupCallbacks) cleanup();
         };
@@ -1132,5 +1325,127 @@ export class HUDcontroller {
             refreshTradeTable();
             refreshProductionPanel();
         };
+        this._activeModalRealtimeRefresh = () => {
+            if (activeTab === "production") {
+                refreshProductionPanel();
+            }
+        };
+    }
+
+    /** Update the bottom-right ship panel with the given ship's state. */
+    public updateShipPanel(ship: Entity, world: World): void {
+        const nameComp = ship.getComponent(Name);
+        const shipComp = ship.getComponent(Ship);
+        const shipType = ship.getComponent(ShipType);
+        const inventory = ship.getComponent(Inventory);
+        const pos = ship.getComponent(Position);
+
+        if (this._shipPanelName) {
+            this._shipPanelName.textContent = nameComp?.value ?? "Ship";
+        }
+
+        if (this._shipPanelType) {
+            this._shipPanelType.textContent = shipType?.shipClass ?? "Vessel";
+        }
+
+        // Determine current port
+        if (this._shipPanelPort) {
+            if (ship.hasComponent(TravelRoute)) {
+                this._shipPanelPort.textContent = "At Sea";
+                this._shipPanelPort.classList.add("on-sea");
+            } else if (pos) {
+                const city = world.query(City, Position, Name).find(e => {
+                    const cp = e.getComponent(Position)!;
+                    return Math.abs(cp.x - pos.x) < 0.001 && Math.abs(cp.y - pos.y) < 0.001;
+                });
+                this._shipPanelPort.textContent = city?.getComponent(Name)?.value ?? "At Sea";
+                this._shipPanelPort.classList.toggle("on-sea", !city);
+            } else {
+                this._shipPanelPort.textContent = "Unknown";
+            }
+        }
+
+        // Cargo count
+        if (this._shipPanelCargo) {
+            const total = inventory?.totalUnits() ?? 0;
+            const cap = shipComp?.cargoCapacity ?? 0;
+            this._shipPanelCargo.textContent = `${total}/${cap} cargo`;
+            if (this._shipPanelCargoFill) {
+                const fillPct = cap > 0 ? Math.min(100, (total / cap) * 100) : 0;
+                this._shipPanelCargoFill.style.width = `${fillPct}%`;
+            }
+        }
+
+        // Inventory manifest
+        if (this._shipPanelInventory && inventory) {
+            this._shipPanelInventory.innerHTML = "";
+            const cargoEntries = [...inventory.entries()]
+                .filter(([, qty]) => qty > 0)
+                .sort(([goodA], [goodB]) => goodA.name.localeCompare(goodB.name));
+
+            if (this._shipPanelInventoryCount) {
+                this._shipPanelInventoryCount.textContent = `${cargoEntries.length} ${cargoEntries.length === 1 ? "good" : "goods"}`;
+            }
+
+            if (this._shipPanelEmpty) {
+                this._shipPanelEmpty.classList.toggle("hidden", cargoEntries.length > 0);
+            }
+
+            for (const [good, qty] of cargoEntries) {
+                if (qty <= 0) continue;
+                const item = document.createElement("div");
+                item.classList.add("ship-panel-item");
+                item.title = `${good.name}: ${qty}`;
+
+                const iconWrap = document.createElement("div");
+                iconWrap.classList.add("ship-panel-item-icon-wrap");
+                const img = document.createElement("img");
+                img.src = `./assets/images/icons/${good.img}`;
+                img.alt = good.name;
+                img.title = good.name;
+
+                const name = document.createElement("span");
+                name.classList.add("ship-panel-item-name");
+                name.textContent = good.name;
+
+                const qtyLabel = document.createElement("span");
+                qtyLabel.classList.add("ship-panel-item-qty");
+                qtyLabel.textContent = `${qty} units`;
+
+                iconWrap.appendChild(img);
+                item.appendChild(iconWrap);
+                item.appendChild(name);
+                item.appendChild(qtyLabel);
+                this._shipPanelInventory.appendChild(item);
+            }
+        }
+    }
+
+    /** Place a shipbuilding order at the given city. */
+    private _placeShipBuildOrder(city: Entity, typeName: ShipClassName, cfg: ShipTypeConfig): void {
+        if (!this._world) return;
+
+        const companyGold = this._getPlayerCompanyGold();
+        if (!companyGold || companyGold.amount < cfg.goldCost) return;
+
+        // Deduct gold
+        companyGold.amount -= cfg.goldCost;
+
+        // Random build duration within the ship type's range
+        const buildDays = cfg.buildDaysMin + Math.random() * (cfg.buildDaysMax - cfg.buildDaysMin);
+        const buildDurationSecs = buildDays * REAL_SECONDS_PER_DAY;
+
+        const materialsRequired = new Map(Object.entries(cfg.materials));
+
+        const orderEntity = new EntityClass()
+            .addComponent(new ShipBuildOrder(
+                city.id,
+                typeName,
+                cfg.goldCost,
+                materialsRequired,
+                buildDurationSecs,
+            ));
+
+        this._world.addEntity(orderEntity);
     }
 }

@@ -4,3 +4,4 @@ export * from "./components/spatial";
 export * from "./components/identity";
 export * from "./components/economy";
 export * from "./components/navigation";
+export * from "./components/shipyard";

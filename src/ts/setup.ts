@@ -4,10 +4,11 @@ import {
     Position, Name, City, Ship, Gold, Inventory,
     Market, PlayerControlled, CityProduction,
     IsPlayerOwned, Kontor, Merchant, ShadowProducer,
+    ActiveShip, ShipType,
     type TradeGood, type MarketEntry,
 } from "./gameplay/components";
 import { HUDcontroller } from "./render/HUDcontroller";
-import { GameTimeSystem, MovementSystem, MarketSystem, TradeSystem } from "./gameplay/systems";
+import { GameTimeSystem, MovementSystem, MarketSystem, TradeSystem, ShipBuildSystem } from "./gameplay/systems";
 import { MapRenderSystem } from "./render/RenderSystem";
 import { loadMapData } from "./navigation/MapData";
 import { NavigationGraph } from "./navigation/Graph";
@@ -36,6 +37,7 @@ world
     .addTickSystem(new GameTimeSystem())
     .addTickSystem(new MovementSystem())
     .addTickSystem(new MarketSystem())
+    .addTickSystem(new ShipBuildSystem())
     .addTickSystem(renderSystem);
 
 export const tradeSystem = new TradeSystem();
@@ -45,9 +47,10 @@ tradeSystem.world = world;
 /** Initialise the game world from JSON data files. Must be awaited before engine.start(). */
 export async function initWorld(saveGame: SaveGameData | null = null): Promise<void> {
     // Load all data in parallel.
-    const [mapData, registry, citiesRes] = await Promise.all([
+    const [mapData, registry, _shipNameTemplatesLoaded, citiesRes] = await Promise.all([
         loadMapData(),
         GoodsRegistry.load(),
+        ShipBuildSystem.preloadShipNames(),
         fetch("./assets/data/cities.json").then(r => r.json() as Promise<CitiesJson>),
     ]);
 
@@ -97,9 +100,11 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
         .addComponent(new Position(startPos.x, startPos.y))
         .addComponent(new Name("Adler von Lübeck"))
         .addComponent(new Ship(350, 0.035))
+        .addComponent(new ShipType("Kogge"))
         .addComponent(new Gold(0))
         .addComponent(new Inventory())
-        .addComponent(new PlayerControlled());
+        .addComponent(new PlayerControlled())
+        .addComponent(new ActiveShip());
 
     world.addEntity(playerShip);
 
@@ -123,6 +128,7 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
     HUDcontroller.getInstance().setTradeSystem(tradeSystem);
     HUDcontroller.getInstance().setPlayerShip(playerShip);
     HUDcontroller.getInstance().setPlayerCompany(playerCompany);
+    HUDcontroller.getInstance().setWorld(world);
 
     if (saveGame) {
         SaveGameManager.restoreWorld(world, saveGame);

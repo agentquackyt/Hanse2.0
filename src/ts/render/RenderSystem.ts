@@ -1,9 +1,10 @@
 import { TickSystem } from "../ecs/System";
-import { Position, Name, City, Ship, TravelRoute, PlayerControlled, Market, NavigationPath, Kontor, IsPlayerOwned } from "../gameplay/components";
+import { Position, Name, City, Ship, TravelRoute, PlayerControlled, Market, NavigationPath, Kontor, IsPlayerOwned, ActiveShip } from "../gameplay/components";
 import type { NavigationGraph } from "../navigation/Graph";
 import type { Entity } from "../ecs/Entity";
 import { HUDcontroller } from "./HUDcontroller";
 import { getPreloadedImage, loadImageAsset } from "../boot/AssetPreloader";
+import { FleetManager } from "../gameplay/FleetManager";
 
 const MIN_ZOOM = 1.0;
 const MAX_ZOOM = 3.0;
@@ -224,6 +225,14 @@ export class MapRenderSystem extends TickSystem {
         });
 
         canvas.style.cursor = "grab";
+
+        // ---- Tab key: cycle active ship ----
+        window.addEventListener("keydown", (e: KeyboardEvent) => {
+            if (e.key === "Tab") {
+                e.preventDefault();
+                FleetManager.getInstance().cycleActiveShip(this.world);
+            }
+        });
     }
 
     // ------------------------------------------------------------------ click → travel
@@ -245,15 +254,27 @@ export class MapRenderSystem extends TickSystem {
 
         const cityPos = clickedCity.getComponent(Position)!;
 
-        // Access check A — player ship docked at this city (no active route).
-        let playerShip: Entity | null = null;
+        // Access check A — any player ship docked at this city (no active route).
+        const dockedShips: Entity[] = [];
+        let selectedShip: Entity | null = null;
         for (const ship of this.world.query(Position, Ship, PlayerControlled)) {
             if (ship.hasComponent(TravelRoute) || ship.hasComponent(NavigationPath)) continue;
             const sp = ship.getComponent(Position)!;
             if (Math.hypot(sp.x - cityPos.x, sp.y - cityPos.y) < 0.01) {
-                playerShip = ship;
-                break;
+                dockedShips.push(ship);
+                // Prefer the active ship if it's docked here.
+                if (ship.hasComponent(ActiveShip)) {
+                    selectedShip = ship;
+                }
             }
+        }
+
+        if (!selectedShip) {
+            selectedShip = dockedShips[0] ?? null;
+        }
+
+        if (selectedShip) {
+            FleetManager.getInstance().setActiveShip(this.world, selectedShip);
         }
 
         // Access check B — player-owned kontor at this city.
@@ -266,12 +287,12 @@ export class MapRenderSystem extends TickSystem {
             }
         }
 
-        if (!playerShip && !kontorEntity) return;
+        if (dockedShips.length === 0 && !kontorEntity) return;
 
-        HUDcontroller.getInstance().createCityOverviewModal(clickedCity, playerShip, kontorEntity);
+        HUDcontroller.getInstance().createCityOverviewModal(clickedCity, dockedShips, selectedShip, kontorEntity);
     }
 
-    /** Shift+click: navigate the player ship to the clicked harbour. */
+    /** Shift+click: navigate the active player ship to the clicked harbour. */
     private _handleShipMovement(wx: number, wy: number): void {
         const graph = this.graph;
         if (!graph) return;
@@ -293,19 +314,14 @@ export class MapRenderSystem extends TickSystem {
         const destName = clickedCity.getComponent(Name)?.value;
         if (!destName) return;
 
-        // Find the player ship.
-        const playerShips = this.world.query(Position, Ship, PlayerControlled);
-        if (playerShips.length === 0) return;
-        const ship = playerShips[0]!;
+        // Navigate the active ship (the one with the ActiveShip tag).
+        const ship = FleetManager.getInstance().getActiveShip(this.world);
+        if (!ship) return;
         const shipPos = ship.getComponent(Position)!;
 
         // Determine the nearest graph node to the ship's current position.
         const startNode = graph.nearestNode(shipPos.x, shipPos.y);
         if (startNode === destName) return; // already there
-
-        // Update HUD immediately when attempting to travel to a different destination
-        const hud = HUDcontroller.getInstance();
-        hud.updateOnSeaInfo(ship);
 
         const result = graph.findShortestPath(startNode, destName);
         if (!result) return;
@@ -324,6 +340,10 @@ export class MapRenderSystem extends TickSystem {
             ship.addComponent(new TravelRoute(waypoints[0]!, waypoints[1]!));
             ship.getComponent(NavigationPath)!.currentIndex = 0;
         }
+
+        // Update HUD after the ship's travel state has actually changed.
+        const hud = HUDcontroller.getInstance();
+        hud.updateOnSeaInfo(ship);
     }
 
     // ------------------------------------------------------------------ update

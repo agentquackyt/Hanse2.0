@@ -21,5 +21,31 @@
     "Wine": 0.2,
     "Wool": 0.2,
     "Bricks": 0.2
+  },
+  "shipTypes": {
+    "Schnigge": {
+      "capacity": 200,
+      "speed": 0.045,
+      "goldCost": 5000,
+      "materials": { "Wood": 30, "Metal Goods": 10, "Cloth": 10, "Pitch": 10 },
+      "buildDaysMin": 3,
+      "buildDaysMax": 5
+    },
+    "Kogge": {
+      "capacity": 350,
+      "speed": 0.035,
+      "goldCost": 7500,
+      "materials": { "Wood": 50, "Metal Goods": 20, "Cloth": 15, "Pitch": 15 },
+      "buildDaysMin": 4,
+      "buildDaysMax": 6
+    },
+    "Kraveel": {
+      "capacity": 1500,
+      "speed": 0.025,
+      "goldCost": 10000,
+      "materials": { "Wood": 80, "Metal Goods": 30, "Cloth": 25, "Pitch": 20 },
+      "buildDaysMin": 5,
+      "buildDaysMax": 7
+    }
   }
 }

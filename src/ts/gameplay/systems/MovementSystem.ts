@@ -17,6 +17,8 @@ export class MovementSystem extends TickSystem {
             pos.y = route.origin.y + (route.destination.y - route.origin.y) * route.progress;
 
             if (route.progress >= 1) {
+                entity.removeComponent(TravelRoute);
+
                 // Find the city entity at the destination
                 const destinationCity = this.findCityAtPosition(route.destination);
                 if (destinationCity) {
@@ -25,8 +27,6 @@ export class MovementSystem extends TickSystem {
                     hud.setOnSeaState(false);
                     this.triggerHUDController(destinationCity);
                 }
-
-                entity.removeComponent(TravelRoute);
 
                 // If the ship has a multi-hop NavigationPath, advance to the next segment.
                 const navPath = entity.getComponent(NavigationPath);

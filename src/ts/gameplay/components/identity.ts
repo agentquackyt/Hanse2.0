@@ -28,3 +28,10 @@ export class IsPlayerOwned extends Component {
 export class Merchant extends Component {
     constructor(public companyName: string) { super(); }
 }
+
+/** Ship class type (Schnigge, Kogge, Kraveel). */
+export type ShipClassName = "Schnigge" | "Kogge" | "Kraveel";
+
+export class ShipType extends Component {
+    constructor(public readonly shipClass: ShipClassName) { super(); }
+}

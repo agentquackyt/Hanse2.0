@@ -1,11 +1,14 @@
 /**
  * Browser-console inspection utility.
  * Usage: Inspector.getOverview()
+ *        Inspector.addMoney(5000)
+ *        Inspector.setMoney(25000)
  * Downloads a JSON snapshot of the current economy state.
  */
 
 import { Engine } from "./ecs/Engine";
-import { City, CityProduction, Gold, Market, Name } from "./gameplay/components";
+import { HUDcontroller } from "./render/HUDcontroller";
+import { City, CityProduction, Gold, IsPlayerOwned, Market, Merchant, Name } from "./gameplay/components";
 import { GoodsRegistry } from "./gameplay/GoodsRegistry";
 import { DEMAND_DAYS_PER_WEEK } from "./gameplay/GameTime";
 
@@ -34,6 +37,16 @@ interface Overview {
     timestamp: string;
     cityMoney: CityMoney[];
     goods: GoodOverview[];
+}
+
+function getPlayerCompanyGold(): Gold | null {
+    const world = Engine.getInstance().world;
+    const company = world.query(Merchant, Gold, IsPlayerOwned)[0] ?? null;
+    return company?.getComponent(Gold) ?? null;
+}
+
+function refreshHud(): void {
+    HUDcontroller.getInstance().notifyDataChange();
 }
 
 function getOverview(): void {
@@ -112,7 +125,43 @@ function getOverview(): void {
     console.log("[Inspector] Overview downloaded.", overview);
 }
 
-export const Inspector = { getOverview };
+function addMoney(amount: number = 1000): number | null {
+    if (!Number.isFinite(amount)) {
+        console.warn("[Inspector] addMoney expects a finite number.");
+        return null;
+    }
+
+    const gold = getPlayerCompanyGold();
+    if (!gold) {
+        console.warn("[Inspector] Player company gold not found.");
+        return null;
+    }
+
+    gold.amount += amount;
+    refreshHud();
+    console.log(`[Inspector] Added ${amount}£. Company gold is now ${gold.amount}£.`);
+    return gold.amount;
+}
+
+function setMoney(amount: number): number | null {
+    if (!Number.isFinite(amount)) {
+        console.warn("[Inspector] setMoney expects a finite number.");
+        return null;
+    }
+
+    const gold = getPlayerCompanyGold();
+    if (!gold) {
+        console.warn("[Inspector] Player company gold not found.");
+        return null;
+    }
+
+    gold.amount = amount;
+    refreshHud();
+    console.log(`[Inspector] Company gold set to ${gold.amount}£.`);
+    return gold.amount;
+}
+
+export const Inspector = { getOverview, addMoney, setMoney };
 
 // Attach to window so it is accessible from the browser console.
 (window as unknown as Record<string, unknown>)["Inspector"] = Inspector;

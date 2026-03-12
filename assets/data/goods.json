@@ -110,7 +110,7 @@
       "PP": 117,
       "BP": 140,
       "SP": 211,
-      "base_demand": 0
+      "base_demand": 0.5
     },
     {
       "name": "Salt",

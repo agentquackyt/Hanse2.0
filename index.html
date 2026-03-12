@@ -70,6 +70,33 @@
             </button>
             <button id="tutorial-help-btn" class="tutorial-help-btn hidden" title="Show Tutorial">?</button>
         </div>
+        <div id="ship-panel" class="ship-panel" aria-live="polite">
+            <div class="ship-panel-header">
+                <div class="ship-panel-heading">
+                    <p class="ship-panel-kicker">Active Ship</p>
+                    <h3 class="ship-panel-name">Adler von Lubeck</h3>
+                </div>
+                <div class="ship-panel-meta">
+                    <p class="ship-panel-type">Kogge</p>
+                    <p class="ship-panel-port">Lubeck</p>
+                </div>
+            </div>
+            <div class="ship-panel-cargo-card">
+                <div class="ship-panel-cargo-row">
+                    <span class="ship-panel-cargo-label">Cargo Hold</span>
+                    <p class="ship-panel-cargo">0/350 cargo</p>
+                </div>
+                <div class="ship-panel-cargo-meter" aria-hidden="true">
+                    <div class="ship-panel-cargo-fill"></div>
+                </div>
+            </div>
+            <div class="ship-panel-manifest-header">
+                <h4 class="ship-panel-manifest-title">Manifest</h4>
+                <p class="ship-panel-inventory-count">0 goods</p>
+            </div>
+            <div class="ship-panel-inventory"></div>
+            <p class="ship-panel-empty">The hold is empty.</p>
+        </div>
         <canvas id="world-map"></canvas>
         <div class="modal hidden">
             <div class="modal-content">

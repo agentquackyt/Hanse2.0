@@ -1,4 +1,5 @@
 import type { TradeGood, Recipe } from "./components/economy";
+import type { ShipClassName } from "./components/identity";
 
 interface GoodsJsonGood {
     name: string;
@@ -19,9 +20,19 @@ interface GoodsJson {
     recipes: GoodsJsonRecipe[];
 }
 
+export interface ShipTypeConfig {
+    readonly capacity: number;
+    readonly speed: number;
+    readonly goldCost: number;
+    readonly materials: Readonly<Record<string, number>>;
+    readonly buildDaysMin: number;
+    readonly buildDaysMax: number;
+}
+
 interface ConfigJson {
     production_tick_interval: number;
     base_production: Record<string, number>;
+    shipTypes: Record<string, ShipTypeConfig>;
 }
 
 /**
@@ -38,6 +49,7 @@ export class GoodsRegistry {
     private readonly _goods = new Map<string, TradeGood>();
     private readonly _recipes = new Map<string, Recipe>();
     private readonly _baseProduction = new Map<string, number>();
+    private readonly _shipTypes = new Map<ShipClassName, ShipTypeConfig>();
     private _tickInterval = 10;
 
     private constructor() {}
@@ -92,6 +104,13 @@ export class GoodsRegistry {
         }
         reg._tickInterval = configJson.production_tick_interval;
 
+        // --- Ship types ---
+        if (configJson.shipTypes) {
+            for (const [name, cfg] of Object.entries(configJson.shipTypes)) {
+                reg._shipTypes.set(name as ShipClassName, cfg);
+            }
+        }
+
         GoodsRegistry._instance = reg;
         console.log(`GoodsRegistry: loaded ${reg._goods.size} goods, ${reg._recipes.size} recipes`);
         return reg;
@@ -120,5 +139,13 @@ export class GoodsRegistry {
 
     get tickInterval(): number {
         return this._tickInterval;
+    }
+
+    getShipType(name: ShipClassName): ShipTypeConfig | undefined {
+        return this._shipTypes.get(name);
+    }
+
+    getAllShipTypes(): Map<ShipClassName, ShipTypeConfig> {
+        return this._shipTypes;
     }
 }

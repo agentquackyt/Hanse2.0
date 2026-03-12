@@ -8,3 +8,6 @@ export class AiControlled extends Component {}
 
 /** Marks the virtual shadow-producer entity used by the economy balancer. */
 export class ShadowProducer extends Component {}
+
+/** Marks which player ship is currently selected / active. */
+export class ActiveShip extends Component {}

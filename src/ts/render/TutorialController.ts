@@ -23,8 +23,16 @@ const STEPS: TutorialStep[] = [
         body: `Cities glow <span class="tutorial-dot tutorial-dot-blue"></span> <strong>blue</strong> when your ship is docked there, and <span class="tutorial-dot tutorial-dot-red"></span> <strong>red</strong> when you own a Kontor in that city.`,
     },
     {
+        title: "Fleet Controls",
+        body: `Press <kbd>Tab</kbd> to cycle your active ship. The active ship is the one shown in the ship panel, which is also used for sailing orders. <br> It will be selected automatically when you click a city, but you can change it at any time with <kbd>Tab</kbd> or by clicking a ship in the dropdown when trading.`,
+    },
+    {
         title: "Trading Goods",
         body: `Click a city where your ship is docked to open its trade panel. Use the sliders to buy or sell goods - buy cheap, sail to another port, and sell for profit!`,
+    },
+    {
+        title: "Shipbuilding",
+        body: `Open a city and switch to the <strong>Production</strong> tab to inspect its <strong>Shipyard</strong>. If no vessel is already under construction, you can order a new ship there as soon as your company can afford the price and materials.`,
     },
     {
         title: "Kontors",

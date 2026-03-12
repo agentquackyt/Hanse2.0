@@ -1,12 +1,14 @@
 import type { World } from "../ecs/Engine";
-import { City, Gold, Inventory, IsPlayerOwned, Kontor, Market, Merchant, Name, NavigationPath, PlayerControlled, Position, Ship, TravelRoute } from "../gameplay/components";
+import { City, Gold, Inventory, IsPlayerOwned, Kontor, Market, Merchant, Name, NavigationPath, PlayerControlled, Position, Ship, TravelRoute, ActiveShip, ShipType, ShipBuildOrder } from "../gameplay/components";
 import { GameTime } from "../gameplay/GameTime";
 import { GoodsRegistry } from "../gameplay/GoodsRegistry";
+import { Entity } from "../ecs/Entity";
+import type { ShipClassName } from "../gameplay/components/identity";
 
 const SAVEGAME_KEY = "hanse2.savegame";
 const INTRO_SEEN_KEY = "hanse2.intro-seen";
 const TUTORIAL_SEEN_KEY = "hanse2.tutorial-seen";
-const SAVEGAME_VERSION = 1;
+const SAVEGAME_VERSION = 2;
 const AUTOSAVE_INTERVAL_MS = 15000;
 
 interface SavedInventory {
@@ -29,6 +31,27 @@ interface SavedNavigationPath {
     currentIndex: number;
 }
 
+interface SavedShip {
+    name: string;
+    shipType: ShipClassName | null;
+    position: { x: number; y: number };
+    gold: number;
+    inventory: SavedInventory;
+    travelRoute: SavedTravelRoute | null;
+    navigationPath: SavedNavigationPath | null;
+    isActive: boolean;
+}
+
+interface SavedBuildOrder {
+    cityName: string;
+    shipType: ShipClassName;
+    goldCost: number;
+    materialsRequired: Record<string, number>;
+    materialsCollected: Record<string, number>;
+    buildStartRealSeconds: number | null;
+    buildDurationRealSeconds: number;
+}
+
 export interface SaveGameData {
     version: number;
     savedAt: string;
@@ -36,13 +59,17 @@ export interface SaveGameData {
     playerCompany: {
         gold: number;
     };
-    playerShip: {
+    /** @deprecated v1 single ship — kept for migration. */
+    playerShip?: {
         position: { x: number; y: number };
         gold: number;
         inventory: SavedInventory;
         travelRoute: SavedTravelRoute | null;
         navigationPath: SavedNavigationPath | null;
     };
+    /** v2 multi-ship fleet. */
+    playerShips?: SavedShip[];
+    shipBuildOrders?: SavedBuildOrder[];
     kontors: Array<{
         name: string;
         gold: number;
@@ -69,9 +96,25 @@ export class SaveGameManager {
 
         try {
             const parsed = JSON.parse(raw) as SaveGameData;
-            if (parsed.version !== SAVEGAME_VERSION) {
+            // Accept v1 (migrate) and v2
+            if (parsed.version !== SAVEGAME_VERSION && parsed.version !== 1) {
                 this.clearSave();
                 return null;
+            }
+            // Migrate v1 → v2
+            if (parsed.version === 1 && parsed.playerShip && !parsed.playerShips) {
+                parsed.playerShips = [{
+                    name: "Adler von Lübeck",
+                    shipType: "Kogge",
+                    position: parsed.playerShip.position,
+                    gold: parsed.playerShip.gold,
+                    inventory: parsed.playerShip.inventory,
+                    travelRoute: parsed.playerShip.travelRoute,
+                    navigationPath: parsed.playerShip.navigationPath,
+                    isActive: true,
+                }];
+                parsed.shipBuildOrders = [];
+                parsed.version = 2;
             }
             return parsed;
         } catch {
@@ -114,44 +157,124 @@ export class SaveGameManager {
         GameTime.getInstance().setElapsedRealSeconds(saveData.elapsedRealSeconds);
 
         const playerCompany = world.query(Merchant, Gold, IsPlayerOwned)[0];
-        const playerShip = world.query(Ship, PlayerControlled, Position, Inventory)[0];
 
         if (playerCompany) {
             const gold = playerCompany.getComponent(Gold);
             if (gold) gold.amount = saveData.playerCompany.gold;
         }
 
-        if (playerShip) {
-            const position = playerShip.getComponent(Position);
-            const gold = playerShip.getComponent(Gold);
-            const inventory = playerShip.getComponent(Inventory);
+        // ---- Multi-ship restore (v2) ----
+        const savedShips = saveData.playerShips ?? [];
 
+        // The first player ship was created during initWorld — restore it from index 0.
+        const existingShips = world.query(Ship, PlayerControlled, Position, Inventory);
+        const firstShip = existingShips[0];
+
+        for (let i = 0; i < savedShips.length; i++) {
+            const saved = savedShips[i]!;
+            let ship: Entity;
+
+            if (i === 0 && firstShip) {
+                // Restore the default ship created in initWorld.
+                ship = firstShip;
+            } else {
+                // Spawn additional ships.
+                ship = new Entity()
+                    .addComponent(new Position(saved.position.x, saved.position.y))
+                    .addComponent(new Name(saved.name))
+                    .addComponent(new Ship(350, 0.035))
+                    .addComponent(new Gold(saved.gold))
+                    .addComponent(new Inventory())
+                    .addComponent(new PlayerControlled());
+                world.addEntity(ship);
+            }
+
+            // Restore ship properties.
+            const nameComp = ship.getComponent(Name);
+            if (nameComp) nameComp.value = saved.name;
+
+            const position = ship.getComponent(Position);
             if (position) {
-                position.x = saveData.playerShip.position.x;
-                position.y = saveData.playerShip.position.y;
-            }
-            if (gold) gold.amount = saveData.playerShip.gold;
-            if (inventory) this.restoreInventory(inventory, saveData.playerShip.inventory, registry);
-
-            playerShip.removeComponent(TravelRoute);
-            playerShip.removeComponent(NavigationPath);
-
-            if (saveData.playerShip.navigationPath) {
-                const navigationPath = new NavigationPath(saveData.playerShip.navigationPath.waypoints);
-                navigationPath.currentIndex = saveData.playerShip.navigationPath.currentIndex;
-                playerShip.addComponent(navigationPath);
+                position.x = saved.position.x;
+                position.y = saved.position.y;
             }
 
-            if (saveData.playerShip.travelRoute) {
+            const gold = ship.getComponent(Gold);
+            if (gold) gold.amount = saved.gold;
+
+            const inventory = ship.getComponent(Inventory);
+            if (inventory) this.restoreInventory(inventory, saved.inventory, registry);
+
+            // Ship type
+            if (saved.shipType) {
+                ship.removeComponent(ShipType);
+                ship.addComponent(new ShipType(saved.shipType));
+                const cfg = registry.getShipType(saved.shipType);
+                if (cfg) {
+                    const shipComp = ship.getComponent(Ship);
+                    if (shipComp) {
+                        shipComp.cargoCapacity = cfg.capacity;
+                        shipComp.speedUnitsPerSecond = cfg.speed;
+                    }
+                }
+            }
+
+            // Active ship tag
+            ship.removeComponent(ActiveShip);
+            if (saved.isActive) {
+                ship.addComponent(new ActiveShip());
+            }
+
+            // Navigation state
+            ship.removeComponent(TravelRoute);
+            ship.removeComponent(NavigationPath);
+
+            if (saved.navigationPath) {
+                const navigationPath = new NavigationPath(saved.navigationPath.waypoints);
+                navigationPath.currentIndex = saved.navigationPath.currentIndex;
+                ship.addComponent(navigationPath);
+            }
+
+            if (saved.travelRoute) {
                 const travelRoute = new TravelRoute(
-                    saveData.playerShip.travelRoute.origin,
-                    saveData.playerShip.travelRoute.destination,
+                    saved.travelRoute.origin,
+                    saved.travelRoute.destination,
                 );
-                travelRoute.progress = saveData.playerShip.travelRoute.progress;
-                playerShip.addComponent(travelRoute);
+                travelRoute.progress = saved.travelRoute.progress;
+                ship.addComponent(travelRoute);
             }
         }
 
+        // ---- Restore build orders ----
+        if (saveData.shipBuildOrders) {
+            // Map city names to entity IDs for build orders.
+            const citiesByName = new Map(
+                world.query(City, Name).map(e => [e.getComponent(Name)!.value, e.id]),
+            );
+
+            for (const saved of saveData.shipBuildOrders) {
+                const cityId = citiesByName.get(saved.cityName);
+                if (!cityId) continue;
+
+                const materialsRequired = new Map(Object.entries(saved.materialsRequired));
+                const order = new ShipBuildOrder(
+                    cityId,
+                    saved.shipType,
+                    saved.goldCost,
+                    materialsRequired,
+                    saved.buildDurationRealSeconds,
+                );
+                order.buildStartRealSeconds = saved.buildStartRealSeconds;
+                for (const [mat, qty] of Object.entries(saved.materialsCollected)) {
+                    order.materialsCollected.set(mat, qty);
+                }
+
+                const orderEntity = new Entity().addComponent(order);
+                world.addEntity(orderEntity);
+            }
+        }
+
+        // ---- Kontors ----
         const kontorsByName = new Map(
             world.query(Kontor, Name, Inventory).map(entity => [entity.getComponent(Name)?.value, entity]),
         );
@@ -223,30 +346,33 @@ export class SaveGameManager {
 
     private static serializeWorld(world: World): SaveGameData | null {
         const playerCompany = world.query(Merchant, Gold, IsPlayerOwned)[0];
-        const playerShip = world.query(Ship, PlayerControlled, Position, Inventory)[0];
+        const playerShips = world.query(Ship, PlayerControlled, Position, Inventory);
 
-        if (!playerCompany || !playerShip) return null;
+        if (!playerCompany || playerShips.length === 0) return null;
 
         const playerCompanyGold = playerCompany.getComponent(Gold);
-        const shipPosition = playerShip.getComponent(Position);
-        const shipGold = playerShip.getComponent(Gold);
-        const shipInventory = playerShip.getComponent(Inventory);
-        const travelRoute = playerShip.getComponent(TravelRoute);
-        const navigationPath = playerShip.getComponent(NavigationPath);
+        if (!playerCompanyGold) return null;
 
-        if (!playerCompanyGold || !shipPosition || !shipGold || !shipInventory) return null;
+        // ---- Serialize all player ships ----
+        const serializedShips: SavedShip[] = [];
+        for (const ship of playerShips) {
+            const pos = ship.getComponent(Position);
+            const gold = ship.getComponent(Gold);
+            const inv = ship.getComponent(Inventory);
+            if (!pos || !gold || !inv) continue;
 
-        return {
-            version: SAVEGAME_VERSION,
-            savedAt: new Date().toISOString(),
-            elapsedRealSeconds: GameTime.getInstance().elapsedRealSeconds,
-            playerCompany: {
-                gold: playerCompanyGold.amount,
-            },
-            playerShip: {
-                position: { x: shipPosition.x, y: shipPosition.y },
-                gold: shipGold.amount,
-                inventory: this.serializeInventory(shipInventory),
+            const travelRoute = ship.getComponent(TravelRoute);
+            const navigationPath = ship.getComponent(NavigationPath);
+            const nameComp = ship.getComponent(Name);
+            const shipType = ship.getComponent(ShipType);
+
+            serializedShips.push({
+                name: nameComp?.value ?? "Ship",
+                shipType: (shipType?.shipClass ?? "Kogge") as ShipClassName,
+                position: { x: pos.x, y: pos.y },
+                gold: gold.amount,
+                inventory: this.serializeInventory(inv),
+                isActive: ship.hasComponent(ActiveShip),
                 travelRoute: travelRoute
                     ? {
                         origin: { ...travelRoute.origin },
@@ -256,11 +382,47 @@ export class SaveGameManager {
                     : null,
                 navigationPath: navigationPath
                     ? {
-                        waypoints: navigationPath.waypoints.map(waypoint => ({ ...waypoint })),
+                        waypoints: navigationPath.waypoints.map(w => ({ ...w })),
                         currentIndex: navigationPath.currentIndex,
                     }
                     : null,
+            });
+        }
+
+        // ---- Serialize build orders ----
+        const buildOrders: SavedBuildOrder[] = [];
+        for (const entity of world.query(ShipBuildOrder)) {
+            const order = entity.getComponent(ShipBuildOrder)!;
+            const cityEntity = world.getEntityById(order.cityEntityId);
+            const cityName = cityEntity?.getComponent(Name)?.value ?? "Unknown";
+
+            buildOrders.push({
+                cityName,
+                shipType: order.shipType,
+                goldCost: order.goldCost,
+                materialsRequired: Object.fromEntries(order.materialsRequired),
+                materialsCollected: Object.fromEntries(order.materialsCollected),
+                buildStartRealSeconds: order.buildStartRealSeconds,
+                buildDurationRealSeconds: order.buildDurationRealSeconds,
+            });
+        }
+
+        return {
+            version: SAVEGAME_VERSION,
+            savedAt: new Date().toISOString(),
+            elapsedRealSeconds: GameTime.getInstance().elapsedRealSeconds,
+            playerCompany: {
+                gold: playerCompanyGold.amount,
             },
+            playerShip: serializedShips[0] ? {
+                position: serializedShips[0].position,
+                gold: serializedShips[0].gold,
+                inventory: serializedShips[0].inventory,
+                travelRoute: serializedShips[0].travelRoute,
+                navigationPath: serializedShips[0].navigationPath,
+            } : { position: { x: 0, y: 0 }, gold: 0, inventory: {}, travelRoute: null, navigationPath: null },
+            playerShips: serializedShips,
+            shipBuildOrders: buildOrders,
             kontors: world.query(Kontor, Name, Inventory).map(entity => ({
                 name: entity.getComponent(Name)?.value ?? "Kontor",
                 gold: entity.getComponent(Gold)?.amount ?? 0,
