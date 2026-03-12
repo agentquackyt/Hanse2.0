@@ -771,6 +771,11 @@ body.intro-active .modal:not(.hidden) {
     padding-bottom: .3rem;
 }
 
+.trade-row-header .trade-row-supply, 
+.trade-row-header .trade-row-held {
+    display: none;
+}
+
 .trade-row-header .trade-row-icon {
     visibility: hidden;
 }
@@ -1453,20 +1458,7 @@ body.intro-active .ship-panel {
     text-align: center;
 }
 
-/* ---- Shipyard Section in Production Tab ---- */
-
-.shipyard-section {
-    margin-top: 1.5rem;
-    border-top: 1px solid var(--hud-card-border);
-    padding-top: 1rem;
-}
-
-.shipyard-title {
-    font-family: var(--hud-title-font);
-    font-size: 1.15em;
-    color: var(--hud-color);
-    margin: 0 0 0.75rem 0;
-}
+/* ---- Shipyard Tab ---- */
 
 .shipyard-grid {
     display: grid;
@@ -1495,30 +1487,10 @@ body.intro-active .ship-panel {
     line-height: 1.5;
 }
 
-.shipyard-card-materials {
-    font-size: 0.8em;
-    color: var(--hud-muted);
-    margin: 0 0 0.5rem 0;
-    list-style: none;
-    padding: 0;
-}
-
-.shipyard-card-materials li {
-    padding: 1px 0;
-}
-
 .shipyard-card-material-cost {
     font-size: 0.8em;
     color: #f7e0b5;
     margin: 0 0 0.6rem 0;
-}
-
-.shipyard-card-materials li .material-ok {
-    color: #7dce82;
-}
-
-.shipyard-card-materials li .material-short {
-    color: #e07050;
 }
 
 .shipyard-order-btn {
@@ -1544,24 +1516,118 @@ body.intro-active .ship-panel {
     cursor: not-allowed;
 }
 
-.shipyard-progress {
-    font-size: 0.82em;
+/* Material icon grid (ship cards + active order) */
+.shipyard-mat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.35rem;
+    margin: 0 0 0.6rem 0;
+}
+
+.shipyard-mat-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.shipyard-mat-item.shipyard-mat-ok {
+    border-color: rgba(125, 206, 130, 0.3);
+    background: rgba(125, 206, 130, 0.06);
+}
+
+.shipyard-mat-item.shipyard-mat-short {
+    border-color: rgba(224, 112, 80, 0.3);
+    background: rgba(224, 112, 80, 0.06);
+}
+
+.shipyard-mat-icon {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    flex-shrink: 0;
+}
+
+.shipyard-mat-qty {
+    font-size: 0.75em;
     color: var(--hud-muted);
-    line-height: 1.5;
+    line-height: 1.3;
+}
+
+.shipyard-mat-ok .shipyard-mat-qty {
+    color: #7dce82;
+}
+
+.shipyard-mat-short .shipyard-mat-qty {
+    color: #e07050;
+}
+
+/* Active build order card */
+.shipyard-active-card {
+    background: var(--hud-card-bg);
+    border: 1px solid var(--hud-card-border);
+    border-radius: var(--hud-border-radius);
+    padding: 0.85rem;
+}
+
+.shipyard-active-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+}
+
+.shipyard-active-title {
+    font-family: var(--hud-title-font);
+    font-size: 1.0em;
+    color: var(--hud-color);
+    margin: 0;
+}
+
+.shipyard-active-badge {
+    font-size: 0.7em;
+    padding: 0.2rem 0.55rem;
+    border-radius: 20px;
+    background: rgba(255, 200, 80, 0.12);
+    color: #f7e0b5;
+    border: 1px solid rgba(255, 200, 80, 0.25);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.shipyard-active-section-label {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--hud-muted);
+    margin: 0 0 0.4rem 0;
+}
+
+.shipyard-active-build {
+    margin-top: 0.75rem;
+}
+
+.shipyard-active-time {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.76em;
+    color: var(--hud-muted);
+    margin-bottom: 0.35rem;
 }
 
 .shipyard-progress-bar {
-    height: 6px;
+    height: 8px;
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
+    border-radius: 4px;
     overflow: hidden;
-    margin-top: 4px;
 }
 
 .shipyard-progress-fill {
     height: 100%;
-    background: var(--hud-color);
-    border-radius: 3px;
+    background: linear-gradient(90deg, rgba(247, 200, 100, 0.8), rgba(247, 150, 50, 0.9));
+    border-radius: 4px;
     transition: width 0.3s;
 }
 

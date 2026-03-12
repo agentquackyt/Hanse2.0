@@ -390,7 +390,7 @@ export class HUDcontroller {
         // Tabs
         const tabBar = document.createElement("div");
         tabBar.classList.add("modal-tabs");
-        const tabs = ["City", "Production", "Trade"] as const;
+        const tabs = ["City", "Production", "Shipyard", "Trade"] as const;
         let activeTab: Lowercase<typeof tabs[number]> = "city";
         const panels: HTMLElement[] = [];
 
@@ -623,23 +623,12 @@ export class HUDcontroller {
         productionEmptyState.textContent = "No production data.";
         prodPanel.appendChild(productionEmptyState);
 
-        // ---- Shipyard Section ----
-        const shipyardSection = document.createElement("section");
-        shipyardSection.classList.add("shipyard-section");
-        const shipyardTitle = document.createElement("h3");
-        shipyardTitle.classList.add("shipyard-title");
-        shipyardTitle.textContent = "Shipyard";
-        shipyardSection.appendChild(shipyardTitle);
-
+        // ---- Shipyard containers (placed in own tab panel below) ----
         const shipyardGrid = document.createElement("div");
         shipyardGrid.classList.add("shipyard-grid");
-        shipyardSection.appendChild(shipyardGrid);
 
         const shipyardActiveOrder = document.createElement("div");
         shipyardActiveOrder.classList.add("shipyard-active-order");
-        shipyardSection.appendChild(shipyardActiveOrder);
-
-        prodPanel.appendChild(shipyardSection);
 
         const findActiveBuildOrder = (): Entity | null => {
             if (!this._world) return null;
@@ -650,61 +639,131 @@ export class HUDcontroller {
             }) ?? null;
         };
 
+        let refreshShipyardLive: (() => void) | null = null;
+
         const buildShipyardCards = () => {
+            refreshShipyardLive = null;
             shipyardGrid.innerHTML = "";
             shipyardActiveOrder.innerHTML = "";
 
             const activeOrderEntity = findActiveBuildOrder();
 
             if (activeOrderEntity) {
-                // Show active order progress instead of cards.
                 shipyardGrid.classList.add("hidden");
                 const order = activeOrderEntity.getComponent(ShipBuildOrder)!;
-                const progress = document.createElement("div");
-                progress.classList.add("shipyard-progress");
+                const isBuilding = order.buildStartRealSeconds !== null;
 
-                const header = document.createElement("p");
-                header.innerHTML = `<strong>Building: ${order.shipType}</strong>`;
-                progress.appendChild(header);
+                const progCard = document.createElement("div");
+                progCard.classList.add("shipyard-active-card");
 
-                // Material status
+                const progHeader = document.createElement("div");
+                progHeader.classList.add("shipyard-active-header");
+                const shipLabel = document.createElement("h4");
+                shipLabel.classList.add("shipyard-active-title");
+                shipLabel.textContent = `Building: ${order.shipType}`;
+                progHeader.appendChild(shipLabel);
+                const badge = document.createElement("span");
+                badge.classList.add("shipyard-active-badge");
+                badge.textContent = isBuilding ? "Under Construction" : "Gathering Materials";
+                progHeader.appendChild(badge);
+                progCard.appendChild(progHeader);
+
+                const matsLabel = document.createElement("p");
+                matsLabel.classList.add("shipyard-active-section-label");
+                matsLabel.textContent = "Materials";
+                progCard.appendChild(matsLabel);
+
+                const matGrid = document.createElement("div");
+                matGrid.classList.add("shipyard-mat-grid");
+
+                interface MatRef { item: HTMLElement; qtyLabel: HTMLElement; matName: string; }
+                const matRefs: MatRef[] = [];
+
                 for (const [matName, required] of order.materialsRequired) {
                     const collected = order.materialsCollected.get(matName) ?? 0;
-                    const p = document.createElement("p");
                     const ok = collected >= required;
-                    p.innerHTML = `<span class="${ok ? "material-ok" : "material-short"}">${matName}: ${collected}/${required}</span>`;
-                    progress.appendChild(p);
+                    const good = registry.getGood(matName);
+                    const item = document.createElement("div");
+                    item.classList.add("shipyard-mat-item", ok ? "shipyard-mat-ok" : "shipyard-mat-short");
+                    item.title = `${matName}: ${collected}/${required}`;
+                    if (good) {
+                        const img = document.createElement("img");
+                        img.classList.add("shipyard-mat-icon");
+                        img.src = `./assets/images/icons/${good.img}`;
+                        img.alt = matName;
+                        item.appendChild(img);
+                    }
+                    const qtyLabel = document.createElement("span");
+                    qtyLabel.classList.add("shipyard-mat-qty");
+                    qtyLabel.textContent = `${matName} ${collected}/${required}`;
+                    item.appendChild(qtyLabel);
+                    matGrid.appendChild(item);
+                    matRefs.push({ item, qtyLabel, matName });
                 }
+                progCard.appendChild(matGrid);
 
-                if (order.buildStartRealSeconds !== null) {
-                    const elapsed = GameTime.getInstance().elapsedRealSeconds - order.buildStartRealSeconds;
+                let timeRightEl: HTMLElement | null = null;
+                let progressFillEl: HTMLElement | null = null;
+
+                if (isBuilding) {
+                    const elapsed = GameTime.getInstance().elapsedRealSeconds - order.buildStartRealSeconds!;
                     const remaining = Math.max(0, order.buildDurationRealSeconds - elapsed);
-                    const remainingDays = (remaining / REAL_SECONDS_PER_DAY).toFixed(1);
                     const pct = Math.min(100, (elapsed / order.buildDurationRealSeconds) * 100);
-                    const status = document.createElement("p");
-                    status.textContent = `Under construction — ${remainingDays} days remaining`;
-                    progress.appendChild(status);
 
+                    const buildSection = document.createElement("div");
+                    buildSection.classList.add("shipyard-active-build");
+                    const timeRow = document.createElement("div");
+                    timeRow.classList.add("shipyard-active-time");
+                    const timeLeft = document.createElement("span");
+                    timeLeft.textContent = "Construction Progress";
+                    timeRightEl = document.createElement("span");
+                    timeRightEl.textContent = `${(remaining / REAL_SECONDS_PER_DAY).toFixed(1)} days remaining`;
+                    timeRow.appendChild(timeLeft);
+                    timeRow.appendChild(timeRightEl);
+                    buildSection.appendChild(timeRow);
                     const bar = document.createElement("div");
                     bar.classList.add("shipyard-progress-bar");
-                    const fill = document.createElement("div");
-                    fill.classList.add("shipyard-progress-fill");
-                    fill.style.width = `${pct}%`;
-                    bar.appendChild(fill);
-                    progress.appendChild(bar);
-                } else {
-                    const status = document.createElement("p");
-                    status.textContent = "Gathering materials…";
-                    progress.appendChild(status);
+                    progressFillEl = document.createElement("div");
+                    progressFillEl.classList.add("shipyard-progress-fill");
+                    progressFillEl.style.width = `${pct}%`;
+                    bar.appendChild(progressFillEl);
+                    buildSection.appendChild(bar);
+                    progCard.appendChild(buildSection);
                 }
 
-                shipyardActiveOrder.appendChild(progress);
+                shipyardActiveOrder.appendChild(progCard);
+
+                refreshShipyardLive = () => {
+                    const liveOrder = activeOrderEntity.getComponent(ShipBuildOrder);
+                    if (!liveOrder || liveOrder.complete) { buildShipyardCards(); return; }
+                    const nowBuilding = liveOrder.buildStartRealSeconds !== null;
+                    if (nowBuilding !== isBuilding) { buildShipyardCards(); return; }
+                    badge.textContent = nowBuilding ? "Under Construction" : "Gathering Materials";
+                    for (const { item, qtyLabel, matName } of matRefs) {
+                        const required = liveOrder.materialsRequired.get(matName) ?? 0;
+                        const collected = liveOrder.materialsCollected.get(matName) ?? 0;
+                        const ok = collected >= required;
+                        item.classList.toggle("shipyard-mat-ok", ok);
+                        item.classList.toggle("shipyard-mat-short", !ok);
+                        item.title = `${matName}: ${collected}/${required}`;
+                        qtyLabel.textContent = `${matName} ${collected}/${required}`;
+                    }
+                    if (nowBuilding && liveOrder.buildStartRealSeconds !== null && timeRightEl && progressFillEl) {
+                        const elapsed = GameTime.getInstance().elapsedRealSeconds - liveOrder.buildStartRealSeconds;
+                        const remaining = Math.max(0, liveOrder.buildDurationRealSeconds - elapsed);
+                        timeRightEl.textContent = `${(remaining / REAL_SECONDS_PER_DAY).toFixed(1)} days remaining`;
+                        progressFillEl.style.width = `${Math.min(100, (elapsed / liveOrder.buildDurationRealSeconds) * 100)}%`;
+                    }
+                };
                 return;
             }
 
             shipyardGrid.classList.remove("hidden");
             const allShipTypes = registry.getAllShipTypes();
             const companyGold = this._getPlayerCompanyGold()?.amount ?? 0;
+
+            interface BtnRef { btn: HTMLButtonElement; goldCost: number; }
+            const btnRefs: BtnRef[] = [];
 
             for (const [typeName, cfg] of allShipTypes) {
                 const expectedMaterialCost = Object.entries(cfg.materials).reduce((sum, [matName, qty]) => {
@@ -728,14 +787,27 @@ export class HUDcontroller {
                 stats.innerHTML = `Cargo: ${cfg.capacity} · Speed: ${speedLabel}<br>Cost: ${cfg.goldCost.toLocaleString()}£`;
                 card.appendChild(stats);
 
-                const matList = document.createElement("ul");
-                matList.classList.add("shipyard-card-materials");
+                const matGrid = document.createElement("div");
+                matGrid.classList.add("shipyard-mat-grid");
                 for (const [matName, qty] of Object.entries(cfg.materials)) {
-                    const li = document.createElement("li");
-                    li.textContent = `${matName}: ${qty}`;
-                    matList.appendChild(li);
+                    const good = registry.getGood(matName);
+                    const item = document.createElement("div");
+                    item.classList.add("shipyard-mat-item");
+                    item.title = `${matName}: ${qty}`;
+                    if (good) {
+                        const img = document.createElement("img");
+                        img.classList.add("shipyard-mat-icon");
+                        img.src = `./assets/images/icons/${good.img}`;
+                        img.alt = matName;
+                        item.appendChild(img);
+                    }
+                    const qtyLabel = document.createElement("span");
+                    qtyLabel.classList.add("shipyard-mat-qty");
+                    qtyLabel.textContent = `${matName}: ${qty}`;
+                    item.appendChild(qtyLabel);
+                    matGrid.appendChild(item);
                 }
-                card.appendChild(matList);
+                card.appendChild(matGrid);
 
                 const materialCost = document.createElement("p");
                 materialCost.classList.add("shipyard-card-material-cost");
@@ -753,10 +825,18 @@ export class HUDcontroller {
                 });
                 card.appendChild(btn);
                 shipyardGrid.appendChild(card);
+                btnRefs.push({ btn, goldCost: cfg.goldCost });
             }
+
+            refreshShipyardLive = () => {
+                if (findActiveBuildOrder()) { buildShipyardCards(); return; }
+                const currentGold = this._getPlayerCompanyGold()?.amount ?? 0;
+                for (const { btn, goldCost } of btnRefs) {
+                    btn.disabled = currentGold < goldCost;
+                }
+            };
         };
 
-        buildShipyardCards();
 
         const refreshProductionPanel = () => {
             const hasProductionData = !!production && !!market && productionStates.size > 0;
@@ -782,11 +862,20 @@ export class HUDcontroller {
                 state.stockValue.textContent = `${supply} stock  (demand ${weeklyDemand}/week)`;
             }
 
-            buildShipyardCards();
         };
         refreshProductionPanel();
         panels.push(prodPanel);
         modalBody.appendChild(prodPanel);
+
+        // ---- Shipyard Panel ----
+        const shipyardPanel = document.createElement("div");
+        shipyardPanel.classList.add("modal-panel", "hidden");
+        shipyardPanel.id = "panel-shipyard";
+        shipyardPanel.appendChild(shipyardGrid);
+        shipyardPanel.appendChild(shipyardActiveOrder);
+        buildShipyardCards();
+        panels.push(shipyardPanel);
+        modalBody.appendChild(shipyardPanel);
 
         // ---- Trade Panel ----
         const tradePanel = document.createElement("div");
@@ -1282,6 +1371,9 @@ export class HUDcontroller {
                 if (target === "production") {
                     refreshProductionPanel();
                 }
+                if (target === "shipyard") {
+                    buildShipyardCards();
+                }
             });
         });
 
@@ -1324,10 +1416,14 @@ export class HUDcontroller {
             refreshCityPanel();
             refreshTradeTable();
             refreshProductionPanel();
+            refreshShipyardLive?.();
         };
         this._activeModalRealtimeRefresh = () => {
             if (activeTab === "production") {
                 refreshProductionPanel();
+            }
+            if (activeTab === "shipyard") {
+                refreshShipyardLive?.();
             }
         };
     }

@@ -3,7 +3,6 @@ import { Entity } from "../../ecs/Entity";
 import {
     ShipBuildOrder, Position, Name, Ship, Gold, Inventory,
     PlayerControlled, ShipType, Kontor, IsPlayerOwned, Market,
-    City,
 } from "../components";
 import { GoodsRegistry } from "../GoodsRegistry";
 import { GameTime, REAL_SECONDS_PER_DAY } from "../GameTime";
