@@ -2,7 +2,6 @@ import type { Entity } from "../ecs/Entity";
 import { City, Market, Name, Inventory, Ship, Gold, CityProduction, Kontor, PlayerControlled, IsPlayerOwned, type TradeGood } from "../gameplay/components";
 import type { TradeSystem } from "../gameplay/systems";
 import { GoodsRegistry } from "../gameplay/GoodsRegistry";
-import { DAYS_PER_WEEK } from "../gameplay/GameTime";
 import { demandAlgorithm } from "../gameplay/algorithms/EconomyAlgorithms";
 import { SatisfactionAlgorithm, SatisfactionLevel, GROWTH_BASE_PER_WEEK } from "../gameplay/algorithms/SatisfactionAlgorithm";
 
@@ -582,10 +581,9 @@ export class HUDcontroller {
                 const multiplier = production.multipliers.get(goodName) ?? 0;
                 const baseProd = registry.getBaseProduction(goodName);
                 const dailyRate = baseProd * (production.citizens / 10) * multiplier;
-                const weeklyRate = dailyRate * DAYS_PER_WEEK;
                 const weeklyDemand = demandAlgorithm(good, production.citizens);
                 const supply = Math.round(market.getEntry(good)?.supply ?? 0);
-                state.rateValue.textContent = `${weeklyRate.toFixed(1)}/week`;
+                state.rateValue.textContent = `${dailyRate.toFixed(1)}/day`;
                 state.stockValue.textContent = `${supply} stock  (demand ${weeklyDemand}/week)`;
             }
         };

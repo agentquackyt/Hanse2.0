@@ -71,7 +71,7 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
         // Build market entries for all known goods (supply starts at 0).
         const marketEntries: [TradeGood, MarketEntry][] = allGoods.map(good => [
             good,
-            { basePrice: good.buyPrice, supply: demandAlgorithm(good, citizens) * (6 * Math.random()), demand: NaN },
+            { basePrice: good.buyPrice, supply: Math.max(15, demandAlgorithm(good, citizens) * 1.5), demand: NaN },
         ]);
 
         const city = new Entity()
@@ -90,13 +90,13 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
         .addComponent(new Name("Hanse Trading Company"))
         .addComponent(new Merchant("Hanse Trading Company"))
         .addComponent(new IsPlayerOwned(true))
-        .addComponent(new Gold(1500));
+        .addComponent(new Gold(1750));
     world.addEntity(playerCompany);
 
     const playerShip = new Entity()
         .addComponent(new Position(startPos.x, startPos.y))
         .addComponent(new Name("Adler von Lübeck"))
-        .addComponent(new Ship(250, 0.025))
+        .addComponent(new Ship(350, 0.035))
         .addComponent(new Gold(0))
         .addComponent(new Inventory())
         .addComponent(new PlayerControlled());

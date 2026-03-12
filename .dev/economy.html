@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hanse Trade Analytics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --parchment: #f5ead8;
+    --parchment-dark: #e8d6b8;
+    --parchment-mid: #efe0c4;
+    --gold: #b8860b;
+    --gold-bright: #d4a017;
+    --gold-pale: #f0d080;
+    --crimson: #8b1a1a;
+    --crimson-light: #c0392b;
+    --sea: #2c5f6e;
+    --sea-light: #3d7a8a;
+    --sea-pale: #7ab5c2;
+    --shadow: rgba(26,18,8,0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--parchment);
+    color: var(--ink);
+    font-family: 'Crimson Pro', serif;
+    font-size: 16px;
+    line-height: 1.6;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  }
+
+  /* HEADER */
+  header {
+    background: var(--ink);
+    color: var(--gold-pale);
+    text-align: center;
+    padding: 2.5rem 2rem 2rem;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 4px solid var(--gold);
+  }
+  header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent, transparent 20px,
+      rgba(184,134,11,0.04) 20px, rgba(184,134,11,0.04) 21px
+    );
+  }
+  header .subtitle {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--gold-pale);
+    opacity: 0.7;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.4rem;
+  }
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.8rem, 4vw, 3.2rem);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: var(--gold-pale);
+    text-shadow: 0 2px 16px rgba(184,134,11,0.4);
+    position: relative;
+  }
+  header .timestamp {
+    font-size: 0.85rem;
+    margin-top: 0.6rem;
+    color: var(--gold-pale);
+    opacity: 0.5;
+    letter-spacing: 0.08em;
+  }
+  header .ornament { color: var(--gold); font-size: 1.4rem; display: block; margin: 0.3rem 0; }
+
+  /* NAV TABS */
+  nav {
+    display: flex;
+    gap: 0;
+    background: var(--ink);
+    border-bottom: 3px solid var(--gold);
+    overflow-x: auto;
+  }
+  nav button {
+    font-family: 'Cinzel', serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold-pale);
+    background: transparent;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: all 0.2s;
+    white-space: nowrap;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -3px;
+  }
+  nav button:hover { opacity: 0.85; }
+  nav button.active { opacity: 1; border-bottom-color: var(--gold-bright); background: rgba(184,134,11,0.1); }
+
+  /* MAIN LAYOUT */
+  main { max-width: 1400px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* CARDS */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: white;
+    border: 1px solid var(--parchment-dark);
+    border-top: 3px solid var(--gold);
+    padding: 1.2rem 1.2rem 1rem;
+    box-shadow: 0 2px 12px var(--shadow);
+    position: relative;
+  }
+  .stat-card .label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sea);
+    margin-bottom: 0.3rem;
+  }
+  .stat-card .value {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .stat-card .sub { font-size: 0.82rem; color: #888; margin-top: 0.2rem; font-style: italic; }
+
+  /* CHART CONTAINERS */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+  .chart-row.single { grid-template-columns: 1fr; }
+  .chart-row.thirds { grid-template-columns: 1fr 1fr 1fr; }
+
+  .chart-box {
+    background: white;
+    border: 1px solid var(--parchment-dark);
+    padding: 1.5rem;
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+  .chart-box h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sea);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--parchment-dark);
+  }
+  .chart-box .chart-wrap { position: relative; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  .data-table th {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: white;
+    background: var(--ink);
+    padding: 0.6rem 1rem;
+    text-align: left;
+  }
+  .data-table td { padding: 0.55rem 1rem; border-bottom: 1px solid var(--parchment-dark); }
+  .data-table tr:nth-child(even) td { background: var(--parchment-mid); }
+  .data-table tr:hover td { background: var(--parchment-dark); }
+  .data-table .num { text-align: right; font-weight: 600; }
+  .surplus-pos { color: var(--sea); }
+  .surplus-neg { color: var(--crimson-light); }
+
+  /* BADGE */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 2px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-surplus { background: #d4edda; color: #1a6b2e; }
+  .badge-deficit { background: #f8d7da; color: #8b1a1a; }
+  .badge-balanced { background: #d6eaf8; color: #154360; }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.3rem;
+    color: var(--ink);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .section-title::before { content: '◆'; color: var(--gold); font-size: 0.9rem; }
+
+  /* GOOD SELECTOR */
+  .good-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1.5rem;
+  }
+  .good-btn {
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.88rem;
+    padding: 0.3rem 0.8rem;
+    background: white;
+    border: 1px solid var(--parchment-dark);
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--ink);
+  }
+  .good-btn:hover { background: var(--parchment-mid); }
+  .good-btn.active { background: var(--ink); color: var(--gold-pale); border-color: var(--ink); }
+
+  /* PROGRESS BARS */
+  .prog-bar-wrap { margin-bottom: 0.6rem; }
+  .prog-bar-label { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.15rem; }
+  .prog-bar-track { height: 10px; background: var(--parchment-mid); border-radius: 2px; overflow: hidden; }
+  .prog-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+
+  /* SCROLL */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--parchment); }
+  ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    .chart-row { grid-template-columns: 1fr; }
+    .chart-row.thirds { grid-template-columns: 1fr; }
+  }
+
+  /* decorative rule */
+  .rule { text-align: center; color: var(--gold); font-size: 1.2rem; margin: 1.5rem 0; letter-spacing: 0.3em; opacity: 0.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="subtitle">The Hanseatic League</div>
+  <h1>Economy Analytics</h1>
+  <div class="timestamp" id="ts"></div>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('overview')">Overview</button>
+  <button onclick="showTab('cities')">City Wealth</button>
+  <button onclick="showTab('goods')">Goods Market</button>
+  <button onclick="showTab('supply')">Supply & Demand</button>
+  <button onclick="showTab('trade')">Trade Flows</button>
+  <button onclick="showTab('details')">Full Data</button>
+  <button id="reload-btn" onclick="showUploadScreen()" style="margin-left:auto">⇪ Load New File</button>
+</nav>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen" style="display:none; position:fixed; inset:0; z-index:100; background:var(--parchment); flex-direction:column; align-items:center; justify-content:center; padding:2rem;">
+  <div style="text-align:center; max-width:480px; width:100%;">
+    <div style="font-family:'Cinzel',serif; font-size:2rem; color:var(--gold); margin-bottom:0.3rem;">⚓</div>
+    <h2 style="font-family:'Cinzel',serif; font-size:1.4rem; color:var(--ink); margin-bottom:0.4rem;">Load Trade Report</h2>
+    <p style="font-family:'Crimson Pro',serif; font-style:italic; color:#666; margin-bottom:2rem; font-size:1rem;">Drop a Hanse overview JSON file to begin your analysis</p>
+
+    <div id="drop-zone" style="border:2px dashed var(--gold); background:white; border-radius:4px; padding:3rem 2rem; cursor:pointer; transition:all 0.2s;" onclick="document.getElementById('file-input').click()">
+      <div style="font-size:2.5rem; margin-bottom:0.8rem;">📜</div>
+      <div style="font-family:'Cinzel',serif; font-size:0.85rem; letter-spacing:0.1em; color:var(--sea); margin-bottom:0.4rem;">DRAG & DROP JSON FILE</div>
+      <div style="font-family:'Crimson Pro',serif; font-size:0.9rem; color:#999;">or click to browse</div>
+    </div>
+    <input type="file" id="file-input" accept=".json" style="display:none">
+    <div id="upload-error" style="color:var(--crimson); font-size:0.88rem; margin-top:1rem; font-style:italic;"></div>
+    <div style="margin-top:1.5rem; font-size:0.8rem; color:#aaa; font-style:italic;">Expected format: <code style="background:#f0e8d4;padding:0.1rem 0.4rem;border-radius:2px;">{ cityMoney: [...], goods: [...] }</code></div>
+  </div>
+</div>
+
+<style>
+  #drop-zone.drag-over { background: var(--parchment-mid); border-color: var(--sea); transform: scale(1.01); }
+  #reload-btn { font-family:'Cinzel',serif; font-size:0.7rem; letter-spacing:0.1em; padding:0.4rem 1rem; background:transparent; border:1px solid var(--gold); color:var(--gold-pale); cursor:pointer; margin-left:auto; display:block; opacity:0.6; transition:opacity 0.2s; }
+  #reload-btn:hover { opacity:1; }
+</style>
+
+<main>
+
+<!-- OVERVIEW -->
+<div class="section active" id="tab-overview">
+  <div class="section-title">League at a Glance</div>
+  <div class="stat-grid" id="overview-stats"></div>
+  <div class="chart-row">
+    <div class="chart-box">
+      <h3>City Wealth Distribution (Top 10)</h3>
+      <div class="chart-wrap" style="height:280px"><canvas id="c-cityBar"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Global Supply vs Demand by Good</h3>
+      <div class="chart-wrap" style="height:280px"><canvas id="c-supplyDemandDot"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-box">
+      <h3>Goods in Deficit (Supply &lt; Demand)</h3>
+      <div class="chart-wrap" style="height:240px"><canvas id="c-deficitBar"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Goods in Surplus (Supply &gt; Demand)</h3>
+      <div class="chart-wrap" style="height:240px"><canvas id="c-surplusBar"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- CITIES -->
+<div class="section" id="tab-cities">
+  <div class="section-title">City Wealth & Gold</div>
+  <div class="chart-row">
+    <div class="chart-box">
+      <h3>Gold Holdings — All Cities</h3>
+      <div class="chart-wrap" style="height:380px"><canvas id="c-allCityBar"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Wealth Share (Pie)</h3>
+      <div class="chart-wrap" style="height:380px"><canvas id="c-cityPie"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-box" style="margin-bottom:1.5rem">
+    <h3>City Wealth Ranking</h3>
+    <div id="city-bars"></div>
+  </div>
+</div>
+
+<!-- GOODS -->
+<div class="section" id="tab-goods">
+  <div class="section-title">Goods Market Overview</div>
+  <div class="chart-row">
+    <div class="chart-box">
+      <h3>Total Supply by Good</h3>
+      <div class="chart-wrap" style="height:300px"><canvas id="c-goodsSupply"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Supply / Demand Ratio</h3>
+      <div class="chart-wrap" style="height:300px"><canvas id="c-sdRatio"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-box">
+      <h3>Global Production Output</h3>
+      <div class="chart-wrap" style="height:260px"><canvas id="c-production"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Global Balance (Supply − Demand)</h3>
+      <div class="chart-wrap" style="height:260px"><canvas id="c-balance"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- SUPPLY & DEMAND -->
+<div class="section" id="tab-supply">
+  <div class="section-title">City-Level Supply & Demand</div>
+  <div class="good-selector" id="good-selector"></div>
+  <div class="chart-row">
+    <div class="chart-box">
+      <h3 id="sd-chart-title">Select a Good</h3>
+      <div class="chart-wrap" style="height:320px"><canvas id="c-sdCity"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>City Surplus/Deficit for Selected Good</h3>
+      <div class="chart-wrap" style="height:320px"><canvas id="c-surplusCity"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-box">
+    <h3>Top Surplus & Deficit Cities</h3>
+    <div id="sd-top-table"></div>
+  </div>
+</div>
+
+<!-- TRADE FLOWS -->
+<div class="section" id="tab-trade">
+  <div class="section-title">Trade Opportunity Analysis</div>
+  <div class="chart-row">
+    <div class="chart-box">
+      <h3>Cities with Most Trade Deficits (Import Demand)</h3>
+      <div class="chart-wrap" style="height:300px"><canvas id="c-cityDeficit"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Cities with Most Trade Surpluses (Export Capacity)</h3>
+      <div class="chart-wrap" style="height:300px"><canvas id="c-citySurplus"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-box">
+    <h3>Highest Value Trade Opportunities (Deficit × Magnitude)</h3>
+    <div id="trade-opps"></div>
+  </div>
+</div>
+
+<!-- DETAILS -->
+<div class="section" id="tab-details">
+  <div class="section-title">Full Data Tables</div>
+  <h3 style="font-family:'Cinzel',serif;font-size:0.9rem;color:var(--sea);margin-bottom:0.8rem;letter-spacing:0.08em;text-transform:uppercase;">City Wealth</h3>
+  <div style="overflow-x:auto;margin-bottom:2rem"><table class="data-table" id="t-cities"></table></div>
+  <h3 style="font-family:'Cinzel',serif;font-size:0.9rem;color:var(--sea);margin-bottom:0.8rem;letter-spacing:0.08em;text-transform:uppercase;">Goods Summary</h3>
+  <div style="overflow-x:auto"><table class="data-table" id="t-goods"></table></div>
+</div>
+
+</main>
+
+<script>
+let DATA = null;
+
+// ─── PALETTE ───────────────────────────────────
+const PARCHMENT = '#f5ead8';
+const INK = '#1a1208';
+const GOLD = '#b8860b';
+const SEA = '#2c5f6e';
+const CRIMSON = '#8b1a1a';
+const PALETTE = ['#2c5f6e','#b8860b','#8b1a1a','#3a6b3a','#6b3a6b','#6b5a2c','#3a4a6b','#6b3a3a','#2c6b5a','#8b7a3a','#4a2c6b','#6b4a2c','#2c3a6b','#6b6b2c','#8b4a2c','#2c6b2c','#4a4a8b','#8b2c2c','#2c4a2c','#5a5a5a'];
+
+function fmt(n) { return n.toLocaleString(); }
+function fmtG(n) { return n >= 1000 ? (n/1000).toFixed(1)+'k' : n.toFixed(1); }
+
+// ─── TAB NAVIGATION ────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ─── OVERVIEW ──────────────────────────────────
+function buildOverview() {
+  const totalGold = DATA.cityMoney.reduce((a,c) => a+c.gold, 0);
+  const deficitGoods = DATA.goods.filter(g => g.totalSupply < g.totalDemand).length;
+  const totalProduction = DATA.goods.reduce((a,g) => a+g.globalProduction, 0);
+  const richest = DATA.cityMoney[0];
+
+  const statsEl = document.getElementById('overview-stats');
+  const stats = [
+    { label: 'Total League Gold', value: fmt(totalGold), sub: 'across all cities' },
+    { label: 'Cities', value: DATA.cityMoney.length, sub: 'Hanseatischer member ports' },
+    { label: 'Goods Traded', value: DATA.goods.length, sub: 'distinct commodities' },
+    { label: 'Goods in Deficit', value: deficitGoods, sub: 'supply < demand globally' },
+    { label: 'Global Production', value: fmt(totalProduction), sub: 'units produced/cycle' },
+    { label: 'Wealthiest City', value: richest.city, sub: fmt(richest.gold) + ' gold' },
+  ];
+  statsEl.innerHTML = stats.map(s => `<div class="stat-card"><div class="label">${s.label}</div><div class="value">${s.value}</div><div class="sub">${s.sub}</div></div>`).join('');
+
+  // Top 10 cities bar
+  const top10 = DATA.cityMoney.slice(0,10);
+  new Chart(document.getElementById('c-cityBar'), {
+    type:'bar',
+    data:{ labels: top10.map(c=>c.city), datasets:[{ label:'Gold', data: top10.map(c=>c.gold), backgroundColor: top10.map((_,i)=>PALETTE[i]), borderRadius:2 }] },
+    options:{ plugins:{legend:{display:false}}, scales:{ y:{ticks:{callback:v=>fmtG(v)},grid:{color:'#e8d6b8'}}, x:{grid:{display:false}} }, responsive:true, maintainAspectRatio:false }
+  });
+
+  // Scatter supply vs demand
+  new Chart(document.getElementById('c-supplyDemandDot'), {
+    type:'scatter',
+    data:{ datasets:[{
+      label:'Goods', pointBackgroundColor: DATA.goods.map(g => g.totalSupply >= g.totalDemand ? SEA : CRIMSON),
+      data: DATA.goods.map(g=>({x:g.totalDemand, y:g.totalSupply, label:g.good})),
+      pointRadius:7, pointHoverRadius:9
+    },{
+      label:'Equilibrium', type:'line',
+      data:[{x:0,y:0},{x:6000,y:6000}],
+      borderColor: GOLD, borderDash:[6,4], borderWidth:1.5, pointRadius:0
+    }]},
+    options:{
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx => ctx.raw.label ? `${ctx.raw.label}: supply ${ctx.raw.y}, demand ${ctx.raw.x}` : '' } } },
+      scales:{ x:{title:{display:true,text:'Total Demand'},grid:{color:'#e8d6b8'}}, y:{title:{display:true,text:'Total Supply'},grid:{color:'#e8d6b8'}} },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+
+  // Deficit goods
+  const defGoods = DATA.goods.filter(g => g.totalSupply < g.totalDemand);
+  new Chart(document.getElementById('c-deficitBar'), {
+    type:'bar',
+    data:{ labels: defGoods.map(g=>g.good), datasets:[{
+      label:'Gap', data: defGoods.map(g=>g.totalDemand - g.totalSupply),
+      backgroundColor: CRIMSON+'bb', borderRadius:2
+    }]},
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{grid:{color:'#e8d6b8'}},y:{grid:{display:false}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  // Surplus goods
+  const surGoods = DATA.goods.filter(g => g.totalSupply >= g.totalDemand).sort((a,b)=>(b.totalSupply-b.totalDemand)-(a.totalSupply-a.totalDemand));
+  new Chart(document.getElementById('c-surplusBar'), {
+    type:'bar',
+    data:{ labels: surGoods.map(g=>g.good), datasets:[{
+      label:'Surplus', data: surGoods.map(g=>g.totalSupply - g.totalDemand),
+      backgroundColor: SEA+'bb', borderRadius:2
+    }]},
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{grid:{color:'#e8d6b8'}},y:{grid:{display:false}}}, responsive:true, maintainAspectRatio:false }
+  });
+}
+
+// ─── CITIES ────────────────────────────────────
+function buildCities() {
+  const cities = DATA.cityMoney;
+  const total = cities.reduce((a,c)=>a+c.gold,0);
+
+  new Chart(document.getElementById('c-allCityBar'), {
+    type:'bar',
+    data:{ labels: cities.map(c=>c.city), datasets:[{data: cities.map(c=>c.gold), backgroundColor: cities.map((_,i)=>PALETTE[i%PALETTE.length]), borderRadius:3}]},
+    options:{ plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>fmtG(v)},grid:{color:'#e8d6b8'}},x:{grid:{display:false},ticks:{maxRotation:45}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  new Chart(document.getElementById('c-cityPie'), {
+    type:'doughnut',
+    data:{ labels: cities.map(c=>c.city), datasets:[{data: cities.map(c=>c.gold), backgroundColor: cities.map((_,i)=>PALETTE[i%PALETTE.length]), borderWidth:1, borderColor:'white'}]},
+    options:{ plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:12}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  const barsEl = document.getElementById('city-bars');
+  barsEl.innerHTML = cities.map((c,i) => {
+    const pct = (c.gold / cities[0].gold * 100).toFixed(1);
+    const color = PALETTE[i % PALETTE.length];
+    return `<div class="prog-bar-wrap">
+      <div class="prog-bar-label"><span>${c.city}</span><span style="font-weight:600">${fmt(c.gold)} ☽ (${(c.gold/total*100).toFixed(1)}%)</span></div>
+      <div class="prog-bar-track"><div class="prog-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ─── GOODS ─────────────────────────────────────
+function buildGoods() {
+  const goods = DATA.goods;
+
+  new Chart(document.getElementById('c-goodsSupply'), {
+    type:'bar',
+    data:{ labels: goods.map(g=>g.good), datasets:[
+      {label:'Supply', data: goods.map(g=>g.totalSupply), backgroundColor: SEA+'99', borderRadius:2},
+      {label:'Demand', data: goods.map(g=>g.totalDemand), backgroundColor: CRIMSON+'99', borderRadius:2}
+    ]},
+    options:{ plugins:{legend:{position:'top'}}, scales:{y:{grid:{color:'#e8d6b8'}},x:{grid:{display:false},ticks:{maxRotation:45,font:{size:10}}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  new Chart(document.getElementById('c-sdRatio'), {
+    type:'bar',
+    data:{ labels: goods.map(g=>g.good), datasets:[{
+      label:'Supply/Demand Ratio', data: goods.map(g=>+(g.totalSupply/g.totalDemand).toFixed(2)),
+      backgroundColor: goods.map(g => g.totalSupply/g.totalDemand >= 1 ? SEA+'bb' : CRIMSON+'bb'), borderRadius:2
+    }]},
+    options:{
+      plugins:{legend:{display:false}, annotation:{}},
+      scales:{ y:{ticks:{callback:v=>v+'×'},grid:{color:'#e8d6b8'}}, x:{grid:{display:false},ticks:{maxRotation:45,font:{size:10}}} },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+
+  new Chart(document.getElementById('c-production'), {
+    type:'bar',
+    data:{ labels: goods.filter(g=>g.globalProduction>0).map(g=>g.good), datasets:[{
+      label:'Production', data: goods.filter(g=>g.globalProduction>0).map(g=>g.globalProduction),
+      backgroundColor: GOLD+'cc', borderRadius:2
+    }]},
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{grid:{color:'#e8d6b8'}},y:{grid:{display:false}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  new Chart(document.getElementById('c-balance'), {
+    type:'bar',
+    data:{ labels: goods.map(g=>g.good), datasets:[{
+      label:'Balance', data: goods.map(g=>+(g.totalSupply-g.totalDemand).toFixed(1)),
+      backgroundColor: goods.map(g => g.totalSupply >= g.totalDemand ? SEA+'bb' : CRIMSON+'bb'), borderRadius:2
+    }]},
+    options:{ plugins:{legend:{display:false}}, scales:{y:{grid:{color:'#e8d6b8'}},x:{grid:{display:false},ticks:{maxRotation:45,font:{size:10}}}}, responsive:true, maintainAspectRatio:false }
+  });
+}
+
+// ─── SUPPLY & DEMAND ───────────────────────────
+function destroyChart(id) { const c = Chart.getChart(id); if (c) c.destroy(); }
+function buildSD() {
+  const sel = document.getElementById('good-selector');
+  DATA.goods.forEach((g, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'good-btn' + (i===0?' active':'');
+    btn.textContent = g.good;
+    btn.onclick = () => { document.querySelectorAll('.good-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderSDGood(g); };
+    sel.appendChild(btn);
+  });
+  renderSDGood(DATA.goods[0]);
+}
+
+function renderSDGood(g) {
+  document.getElementById('sd-chart-title').textContent = g.good + ' — City Supply & Demand';
+
+  // Get all cities that appear in topSurplus or bottomStock
+  const allCities = [...new Set([...g.topSurplus.map(c=>c.city), ...g.bottomStock.map(c=>c.city)])];
+  const combined = {};
+  [...g.topSurplus, ...g.bottomStock].forEach(c => { combined[c.city] = c; });
+  const rows = Object.values(combined).sort((a,b)=>b.surplus-a.surplus);
+
+  destroyChart('c-sdCity');
+  new Chart(document.getElementById('c-sdCity'), {
+    type:'bar',
+    data:{ labels: rows.map(c=>c.city), datasets:[
+      {label:'Supply', data: rows.map(c=>c.supply), backgroundColor: SEA+'99', borderRadius:2},
+      {label:'Demand', data: rows.map(c=>c.demand), backgroundColor: CRIMSON+'99', borderRadius:2}
+    ]},
+    options:{ plugins:{legend:{position:'top'}}, scales:{y:{grid:{color:'#e8d6b8'}},x:{grid:{display:false}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  destroyChart('c-surplusCity');
+  new Chart(document.getElementById('c-surplusCity'), {
+    type:'bar',
+    data:{ labels: rows.map(c=>c.city), datasets:[{
+      label:'Surplus', data: rows.map(c=>c.surplus),
+      backgroundColor: rows.map(c=>c.surplus>=0 ? SEA+'bb' : CRIMSON+'bb'), borderRadius:2
+    }]},
+    options:{ plugins:{legend:{display:false}}, scales:{y:{grid:{color:'#e8d6b8'}},x:{grid:{display:false}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  // Table
+  const tableEl = document.getElementById('sd-top-table');
+  tableEl.innerHTML = `<table class="data-table"><thead><tr>
+    <th>City</th><th>Supply</th><th>Demand</th><th>Surplus/Deficit</th><th>Status</th>
+  </tr></thead><tbody>
+    ${rows.map(c => `<tr><td>${c.city}</td><td class="num">${c.supply}</td><td class="num">${c.demand}</td>
+      <td class="num ${c.surplus>=0?'surplus-pos':'surplus-neg'}">${c.surplus>0?'+':''}${c.surplus}</td>
+      <td>${c.surplus>5?'<span class="badge badge-surplus">Surplus</span>':c.surplus<-1?'<span class="badge badge-deficit">Deficit</span>':'<span class="badge badge-balanced">Balanced</span>'}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ─── TRADE FLOWS ───────────────────────────────
+function buildTrade() {
+  // Aggregate deficits and surpluses per city
+  const cityStats = {};
+  DATA.cityMoney.forEach(c => { cityStats[c.city] = {deficits:0, surpluses:0, defCount:0, surCount:0}; });
+
+  DATA.goods.forEach(g => {
+    [...g.topSurplus, ...g.bottomStock].forEach(c => {
+      if (!cityStats[c.city]) cityStats[c.city] = {deficits:0, surpluses:0, defCount:0, surCount:0};
+      if (c.surplus < 0) { cityStats[c.city].deficits += Math.abs(c.surplus); cityStats[c.city].defCount++; }
+      else { cityStats[c.city].surpluses += c.surplus; cityStats[c.city].surCount++; }
+    });
+  });
+
+  const sorted = Object.entries(cityStats).sort((a,b)=>b[1].deficits-a[1].deficits);
+  const top8def = sorted.slice(0,8);
+  new Chart(document.getElementById('c-cityDeficit'), {
+    type:'bar', data:{ labels: top8def.map(e=>e[0]), datasets:[{label:'Total Deficit Volume', data: top8def.map(e=>+e[1].deficits.toFixed(1)), backgroundColor: CRIMSON+'bb', borderRadius:2}]},
+    options:{ plugins:{legend:{display:false}}, scales:{y:{grid:{color:'#e8d6b8'}},x:{grid:{display:false}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  const sortedSur = Object.entries(cityStats).sort((a,b)=>b[1].surpluses-a[1].surpluses);
+  const top8sur = sortedSur.slice(0,8);
+  new Chart(document.getElementById('c-citySurplus'), {
+    type:'bar', data:{ labels: top8sur.map(e=>e[0]), datasets:[{label:'Total Surplus Volume', data: top8sur.map(e=>+e[1].surpluses.toFixed(1)), backgroundColor: SEA+'bb', borderRadius:2}]},
+    options:{ plugins:{legend:{display:false}}, scales:{y:{grid:{color:'#e8d6b8'}},x:{grid:{display:false}}}, responsive:true, maintainAspectRatio:false }
+  });
+
+  // Trade opportunities: goods in global deficit, sorted by magnitude
+  const opps = DATA.goods.filter(g => g.totalSupply < g.totalDemand).map(g => ({
+    good: g.good,
+    gap: g.totalDemand - g.totalSupply,
+    demand: g.totalDemand,
+    supply: g.totalSupply,
+    pct: ((g.totalDemand - g.totalSupply)/g.totalDemand*100).toFixed(1),
+    topSuppliers: g.topSurplus.map(c=>`${c.city} (+${c.surplus})`).join(', '),
+    topNeeders: g.bottomStock.filter(c=>c.surplus<0).map(c=>`${c.city} (${c.surplus})`).join(', ')
+  })).sort((a,b)=>b.gap-a.gap);
+
+  document.getElementById('trade-opps').innerHTML = `<table class="data-table"><thead><tr>
+    <th>Good</th><th>Global Gap</th><th>Deficit %</th><th>Best Suppliers</th><th>Highest Demand Cities</th>
+  </tr></thead><tbody>
+    ${opps.map(o=>`<tr>
+      <td><strong>${o.good}</strong></td>
+      <td class="num surplus-neg">−${fmt(o.gap)}</td>
+      <td class="num surplus-neg">${o.pct}%</td>
+      <td style="font-size:0.82rem;color:var(--sea)">${o.topSuppliers}</td>
+      <td style="font-size:0.82rem;color:var(--crimson)">${o.topNeeders}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ─── DETAILS ───────────────────────────────────
+function buildDetails() {
+  document.getElementById('t-cities').innerHTML = `<thead><tr>
+    <th>#</th><th>City</th><th>Gold</th><th>% of Total</th>
+  </tr></thead><tbody>
+    ${DATA.cityMoney.map((c,i)=>{
+      const total = DATA.cityMoney.reduce((a,x)=>a+x.gold,0);
+      return `<tr><td>${i+1}</td><td><strong>${c.city}</strong></td><td class="num">${fmt(c.gold)} ☽</td><td class="num">${(c.gold/total*100).toFixed(2)}%</td></tr>`;
+    }).join('')}
+  </tbody>`;
+
+  document.getElementById('t-goods').innerHTML = `<thead><tr>
+    <th>Good</th><th>Total Supply</th><th>Total Demand</th><th>Balance</th><th>Production</th><th>Status</th>
+  </tr></thead><tbody>
+    ${DATA.goods.map(g=>{
+      const bal = g.totalSupply - g.totalDemand;
+      return `<tr>
+        <td><strong>${g.good}</strong></td>
+        <td class="num">${fmt(g.totalSupply)}</td>
+        <td class="num">${fmt(g.totalDemand)}</td>
+        <td class="num ${bal>=0?'surplus-pos':'surplus-neg'}">${bal>0?'+':''}${fmt(+bal.toFixed(1))}</td>
+        <td class="num">${g.globalProduction}</td>
+        <td>${bal>0?'<span class="badge badge-surplus">Surplus</span>':bal<0?'<span class="badge badge-deficit">Deficit</span>':'<span class="badge badge-balanced">Balanced</span>'}</td>
+      </tr>`;
+    }).join('')}
+  </tbody>`;
+}
+
+// ─── UPLOAD SCREEN ─────────────────────────────
+function showUploadScreen() {
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.querySelector('nav').style.display = 'none';
+  document.querySelector('main').style.display = 'none';
+}
+
+function hideUploadScreen() {
+  document.getElementById('upload-screen').style.display = 'none';
+  document.querySelector('nav').style.display = 'flex';
+  document.querySelector('main').style.display = 'block';
+}
+
+function handleFile(file) {
+  if (!file || !file.name.endsWith('.json')) {
+    showError('Please select a valid .json file.'); return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (!parsed.cityMoney || !parsed.goods) {
+        showError('JSON missing required fields: cityMoney, goods'); return;
+      }
+      DATA = parsed;
+      document.getElementById('upload-error').textContent = '';
+      hideUploadScreen();
+      initDashboard();
+    } catch(err) {
+      showError('Invalid JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showError(msg) {
+  document.getElementById('upload-error').textContent = msg;
+}
+
+function initDashboard() {
+  // Destroy all existing Chart.js instances
+  const canvasIds = ['c-cityBar','c-supplyDemandDot','c-deficitBar','c-surplusBar',
+   'c-allCityBar','c-cityPie','c-goodsSupply','c-sdRatio','c-production',
+   'c-balance','c-sdCity','c-surplusCity','c-cityDeficit','c-citySurplus'];
+  canvasIds.forEach(id => destroyChart(id));
+
+  // Reset dynamic content areas
+  document.getElementById('overview-stats').innerHTML = '';
+  document.getElementById('good-selector').innerHTML = '';
+  document.getElementById('city-bars').innerHTML = '';
+  document.getElementById('sd-top-table').innerHTML = '';
+  document.getElementById('trade-opps').innerHTML = '';
+
+  // Activate overview tab
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-overview').classList.add('active');
+  document.querySelector('nav button').classList.add('active');
+
+  buildOverview();
+  buildCities();
+  buildGoods();
+  buildSD();
+  buildTrade();
+  buildDetails();
+
+  // Update header timestamp
+  if (DATA.timestamp) {
+    document.getElementById('ts').textContent = 'Report generated: ' + new Date(DATA.timestamp).toLocaleString('en-GB', {dateStyle:'long',timeStyle:'short'});
+  } else {
+    document.getElementById('ts').textContent = 'File loaded: ' + new Date().toLocaleString('en-GB', {dateStyle:'long',timeStyle:'short'});
+  }
+}
+
+// ─── DRAG & DROP ────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
+document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
+
+// ─── BOOT ───────────────────────────────────────
+showUploadScreen();
+</script>
+</body>
+</html>

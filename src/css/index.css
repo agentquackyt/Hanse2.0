@@ -322,11 +322,11 @@ body {
 
 @keyframes intro-bg-zoom {
     from {
-        background-size: auto, auto, 105%;
+        background-size: auto, auto, 115%;
     }
 
     to {
-        background-size: auto, auto, 130%;
+        background-size: auto, auto, 170%;
     }
 }
 

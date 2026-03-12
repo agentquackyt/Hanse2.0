@@ -6,7 +6,6 @@
 
 import { Engine } from "./ecs/Engine";
 import { City, CityProduction, Gold, Market, Name } from "./gameplay/components";
-import { DAYS_PER_WEEK } from "./gameplay/GameTime";
 import { GoodsRegistry } from "./gameplay/GoodsRegistry";
 
 interface CityMoney {
@@ -70,7 +69,7 @@ function getOverview(): void {
             const multiplier = production?.multipliers.get(good.name) ?? 0;
             const baseProd   = registry.getBaseProduction(good.name);
             const citizens   = production?.citizens ?? 0;
-            row.globalProduction += baseProd * (citizens / 10) * multiplier * DAYS_PER_WEEK;
+            row.globalProduction += baseProd * (citizens / 10) * multiplier;
             row.topSurplus.push({
                 city: cityName,
                 supply: Math.round(entry.supply * 10) / 10,
