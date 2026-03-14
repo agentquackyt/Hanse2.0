@@ -400,6 +400,7 @@ export class MapRenderSystem extends TickSystem {
         const s   = this._scale();
         for (const entity of this.world.query(Position, Ship, NavigationPath)) {
             const nav = entity.getComponent(NavigationPath)!;
+            const isActive = entity.hasComponent(ActiveShip);
             const wps = nav.waypoints;
             if (wps.length < 2) continue;
 
@@ -408,7 +409,9 @@ export class MapRenderSystem extends TickSystem {
             for (let i = 1; i < wps.length; i++) {
                 ctx.lineTo(wps[i]!.x, wps[i]!.y);
             }
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.46)";
+            ctx.strokeStyle = isActive
+                ? "rgba(255, 255, 255, 0.86)"
+                : "rgba(255, 199, 103, 0.35)";
             ctx.setLineDash([4 / s, 6 / s]);
             ctx.lineWidth = 2 / s;
             ctx.stroke();

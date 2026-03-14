@@ -771,7 +771,7 @@ body.intro-active .modal:not(.hidden) {
     padding-bottom: .3rem;
 }
 
-.trade-row-header .trade-row-supply, 
+.trade-row-header .trade-row-supply,
 .trade-row-header .trade-row-held {
     display: none;
 }
@@ -1311,15 +1311,16 @@ body.intro-active .ship-panel {
 
 .ship-panel-type {
     margin: 0;
-    color: #f7e0b5;
-    font-size: .95rem;
+    font-size: .78rem;
+    color: var(--hud-muted);
     text-align: right;
 }
 
 .ship-panel-port {
+
     margin: 0;
-    font-size: .78rem;
-    color: var(--hud-muted);
+    color: #f7e0b5;
+    font-size: .95rem;
     text-align: right;
 }
 
@@ -1365,13 +1366,14 @@ body.intro-active .ship-panel {
     border-radius: 999px;
     background: rgba(8, 7, 6, .7);
     border: 1px solid var(--hud-card-border);
+    display: none;
 }
 
 .ship-panel-cargo-fill {
     width: 0;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #8b6a50 0%, #f0c878 100%);
+    background: linear-gradient(90deg, #8b6a50 0%, #4f2914 100%);
     transition: width 0.24s ease;
 }
 
@@ -1416,7 +1418,7 @@ body.intro-active .ship-panel {
     padding: .55rem .5rem;
     border-radius: 10px;
     border: 1px solid var(--hud-card-border);
-    background: rgba(24, 14, 10, .5);
+    background: var(--hud-card-bg);
 }
 
 .ship-panel-item-icon-wrap {
