@@ -70,6 +70,7 @@ export interface MarketEntry {
 /** City marketplace — tracks supply, demand, and dynamic pricing per good. */
 export class Market extends Component {
     private readonly _entries = new Map<TradeGood, MarketEntry>();
+    private _mostScarceGood?: TradeGood | undefined = undefined;
 
     constructor(entries?: Iterable<[TradeGood, MarketEntry]>) {
         super();
@@ -101,6 +102,16 @@ export class Market extends Component {
     update(good: TradeGood, patch: Partial<MarketEntry>): void {
         const e = this._entries.get(good);
         if (e) Object.assign(e, patch);
+    }
+
+
+    // Satisfaction algorithm
+    setMostScarceGood(good: TradeGood | undefined): void {
+        this._mostScarceGood = good;
+    }
+    
+    getMostScarceGood(): TradeGood | undefined {
+        return this._mostScarceGood;
     }
 }
 

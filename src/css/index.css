@@ -312,23 +312,13 @@ body {
         url("../assets/images/intro_background.webp");
     background-position: center, center, center;
     background-repeat: no-repeat, no-repeat, no-repeat;
-    background-size: auto, auto, 105%;
-    animation: intro-bg-zoom 40s ease-in forwards;
+    background-size: cover;
     flex-direction: column;
     overflow: hidden;
     z-index: 100;
     user-select: none;
 }
 
-@keyframes intro-bg-zoom {
-    from {
-        background-size: auto, auto, 115%;
-    }
-
-    to {
-        background-size: auto, auto, 170%;
-    }
-}
 
 #intro-seq::before {
     content: "";

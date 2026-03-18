@@ -15,7 +15,7 @@
  */
 import type { World } from "../../ecs/Engine";
 import type { Entity } from "../../ecs/Entity";
-import { City, Gold, Market } from "../components";
+import { City, Gold, Market, type TradeGood } from "../components";
 
 // ---- Satisfaction thresholds ----
 const NOT_SATISFIED_THRESHOLD = 0.5;
@@ -68,17 +68,24 @@ export class SatisfactionAlgorithm {
     static calculateSatisfaction(market: Market): number {
         let weightedFulfillment = 0;
         let totalDemand = 0;
+        let mostScarceRatio = Infinity;
+        let mostScarceGood: TradeGood | undefined = undefined;
 
-        for (const [, entry] of market.goods()) {
+        for (const [good, entry] of market.goods()) {
             const demand = entry.demand ?? 0;
             const supply = entry.supply ?? 0;
             if (!(demand > 0)) continue;
-            const ratio = Math.min(supply / demand, 1.0);
-            weightedFulfillment += ratio * demand;
-            totalDemand += demand;
+            const ratio = Math.min(supply / (demand * 2), 1.0);
+            if(ratio < mostScarceRatio && ratio < 1.0) {
+                mostScarceRatio = ratio;
+                mostScarceGood = good;
+            }
+            weightedFulfillment += ratio;
+            totalDemand++;
         }
-
-        if (totalDemand === 0) return 1; // no demand = trivially satisfied
+        
+        market.setMostScarceGood(mostScarceGood);
+        if (totalDemand === 0) return 1.0; // No demand means fully satisfied    
         return weightedFulfillment / totalDemand;
     }
 

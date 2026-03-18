@@ -1,10 +1,12 @@
 import { TickSystem } from "../ecs/System";
-import { Position, Name, City, Ship, TravelRoute, PlayerControlled, Market, NavigationPath, Kontor, IsPlayerOwned, ActiveShip } from "../gameplay/components";
+import { Position, Name, City, Ship, TravelRoute, PlayerControlled, Market, NavigationPath, Kontor, IsPlayerOwned, ActiveShip, type TradeGood } from "../gameplay/components";
 import type { NavigationGraph } from "../navigation/Graph";
 import type { Entity } from "../ecs/Entity";
 import { HUDcontroller } from "./HUDcontroller";
 import { getPreloadedImage, loadImageAsset } from "../boot/AssetPreloader";
 import { FleetManager } from "../gameplay/FleetManager";
+import { GoodsRegistry } from "../gameplay/GoodsRegistry";
+import { SpriteManager } from "./SpriteManager";
 
 const MIN_ZOOM = 1.0;
 const MAX_ZOOM = 3.0;
@@ -457,6 +459,7 @@ export class MapRenderSystem extends TickSystem {
         for (const entity of this.world.query(Position, City)) {
             const pos    = entity.getComponent(Position)!;
             const name   = entity.getComponent(Name);
+            const market   = entity.getComponent(Market);
 
             const hasPlayerDocked = playerDockedPositions.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 0.01);
             const hasKontor       = kontorPositions.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 0.01);
@@ -508,6 +511,19 @@ export class MapRenderSystem extends TickSystem {
             ctx.fillStyle = hasPlayerDocked ? "#244c7c" : hasKontor ? "#8a2828" : "#7a4d2d";
             ctx.fill();
 
+
+            let scarceGood: TradeGood | undefined = market?.getMostScarceGood();
+            if(scarceGood) {
+                let icon = SpriteManager.getInstance().getIcon(scarceGood?.name);
+                if(icon) {
+                    const { sx, sy } = this._worldToScreen(pos.x, pos.y);
+                    ctx.save();
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    const size = this._zoom > 2 ? 24 : 16;
+                    ctx.drawImage(icon, sx + 15, sy - size / 2, size, size);
+                    ctx.restore();
+                }
+            }
 
             // Label
             if (name && this._zoom > 2) {

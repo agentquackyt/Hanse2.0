@@ -24,6 +24,14 @@ interface CityGoodEntry {
     surplus: number;
 }
 
+/**
+ * Good overview includes:
+ * - total supply & demand across all cities
+ * - estimated global production rate (not accounting for ingredient shortages)
+ * - top 2 cities with highest surplus (supply - demand)
+ * - bottom 2 cities with lowest stock (supply)
+ * This allows identifying which goods are most abundant/scarce and where.
+ */
 interface GoodOverview {
     good: string;
     totalSupply: number;
@@ -33,12 +41,19 @@ interface GoodOverview {
     bottomStock: CityGoodEntry[];
 }
 
+/**
+ * Overall snapshot structure, containing timestamp, city money standings, and per-good overviews.
+ */
 interface Overview {
     timestamp: string;
     cityMoney: CityMoney[];
     goods: GoodOverview[];
 }
 
+/**
+ * Retrieves the gold amount for the player's company.
+ * @returns The gold component or null if not found.
+ */
 function getPlayerCompanyGold(): Gold | null {
     const world = Engine.getInstance().world;
     const company = world.query(Merchant, Gold, IsPlayerOwned)[0] ?? null;
@@ -49,6 +64,14 @@ function refreshHud(): void {
     HUDcontroller.getInstance().notifyDataChange();
 }
 
+/**
+ * Generates an JSON snapshot of the current economy state, including city money standings and per-good supply/demand overviews, and triggers a download of this data.
+ * The overview includes:
+ * - For each city: its name and current gold amount.
+ * - For each good: total supply, total demand, estimated global production rate, top 2 cities with highest surplus, and bottom 2 cities with lowest stock.
+ * This allows analyzing the overall economic situation and identifying which goods are abundant or scarce and where.
+ * The resulting JSON file is named "hanse-overview-{timestamp}.json".
+ */
 function getOverview(): void {
     const world = Engine.getInstance().world;
     const cities = world.query(City, Market, Name);
@@ -125,6 +148,11 @@ function getOverview(): void {
     console.log("[Inspector] Overview downloaded.", overview);
 }
 
+/**
+ * Adds money to the player's company.
+ * @param amount The amount of money to add.
+ * @returns The updated gold amount or null if operation failed.
+ */
 function addMoney(amount: number = 1000): number | null {
     if (!Number.isFinite(amount)) {
         console.warn("[Inspector] addMoney expects a finite number.");
@@ -143,6 +171,11 @@ function addMoney(amount: number = 1000): number | null {
     return gold.amount;
 }
 
+/**
+ * Sets the money amount for the player's company.
+ * @param amount The new amount of money for the player's company.
+ * @returns The updated gold amount or null if operation failed.
+ */
 function setMoney(amount: number): number | null {
     if (!Number.isFinite(amount)) {
         console.warn("[Inspector] setMoney expects a finite number.");
