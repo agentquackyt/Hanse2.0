@@ -44,7 +44,11 @@ const STEPS: TutorialStep[] = [
     },
     {
         title: "Becoming Mayor",
-        body: `If you build up enough reputation in a city, you can run for mayor there. Winning the election grants you a powerful bonus and a steady income from the city treasury. <br> To gain reputation, keep the city's market satisfied by ensuring its supply meets demand. If the market is scarce (supply is very low compared to demand), you gain reputation by selling goods there. If the market is oversupplied, you gain reputation by buying goods and helping to balance it out!`,
+        body: `If you build up enough reputation in a city, you can run for mayor there. Winning the election grants you a powerful bonus and a steady income from the city treasury.`,
+    },
+    {
+        title: "Becoming Mayor",
+        body: `To gain reputation, keep the city's market satisfied by ensuring its supply meets demand. If the market is scarce (supply is very low compared to demand), you gain reputation by selling goods there. If the market is oversupplied, you gain reputation by buying goods and helping to balance it out!`,
     }
 ];
 
