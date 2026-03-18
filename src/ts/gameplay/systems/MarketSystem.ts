@@ -1,5 +1,5 @@
 import { TickSystem } from "../../ecs/System";
-import { City, Market, CityProduction, type TradeGood } from "../components";
+import { City, CityFacilities, CityProduction, CityTreasury, Market, type TradeGood } from "../components";
 import { GoodsRegistry } from "../GoodsRegistry";
 import { HUDcontroller } from "../../render/HUDcontroller";
 import { DEMAND_DAYS_PER_WEEK, REAL_SECONDS_PER_DAY, REAL_SECONDS_PER_WEEK } from "../GameTime";
@@ -33,6 +33,7 @@ export class MarketSystem extends TickSystem {
         for (const entity of this.world.query(City, Market, CityProduction)) {
             const market     = entity.getComponent(Market)!;
             const production = entity.getComponent(CityProduction)!;
+            const facilities = entity.getComponent(CityFacilities);
             const { citizens, multipliers } = production;
 
             // ---- Production ----
@@ -71,6 +72,26 @@ export class MarketSystem extends TickSystem {
                 const entry = market.getEntry(good);
                 if (entry) {
                     market.update(good, { supply: entry.supply + amount });
+                }
+            }
+
+            // ---- City treasury income ----
+            const treasury = entity.getComponent(CityTreasury);
+            if (treasury) {
+                treasury.amount += citizens * (elapsed / REAL_SECONDS_PER_DAY);
+            }
+
+            // ---- Mayor-funded facility output (independent city pipeline) ----
+            if (facilities) {
+                for (const [goodName, facility] of facilities.entries()) {
+                    const good = registry.getGood(goodName);
+                    if (!good) continue;
+
+                    const addAmount = facility.weeklyOutput * (elapsed / REAL_SECONDS_PER_WEEK);
+                    if (addAmount <= 0) continue;
+                    const entry = market.getEntry(good);
+                    if (!entry) continue;
+                    market.update(good, { supply: entry.supply + addAmount });
                 }
             }
 

@@ -5,3 +5,4 @@ export * from "./components/identity";
 export * from "./components/economy";
 export * from "./components/navigation";
 export * from "./components/shipyard";
+export * from "./components/governance";

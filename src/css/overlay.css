@@ -340,6 +340,441 @@ body.intro-active .modal:not(.hidden) {
     display: none;
 }
 
+.notifications-container {
+    position: fixed;
+    top: 110px;
+    right: 16px;
+    z-index: 1010;
+    width: min(340px, calc(100vw - 24px));
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.notification-item {
+    border: 1px solid #6e4f37;
+    border-radius: 10px;
+    padding: 0.75rem 0.9rem;
+    background: linear-gradient(180deg, rgba(34, 20, 12, 0.96) 0%, rgba(22, 12, 7, 0.96) 100%);
+    color: #f3ddbc;
+    box-shadow: 0 10px 24px rgba(8, 3, 0, 0.35);
+    animation: notification-enter 220ms ease-out;
+}
+
+.notification-title {
+    margin: 0 0 0.2rem;
+    font-size: 0.95rem;
+    font-family: var(--hud-title-font);
+}
+
+.notification-body {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.25;
+}
+
+.notification-success {
+    border-color: #4f8a5d;
+}
+
+.notification-warning {
+    border-color: #a17f3a;
+}
+
+.notification-error {
+    border-color: #a35548;
+}
+
+.notification-exit {
+    opacity: 0;
+    transform: translateX(20px);
+    transition: opacity 220ms ease, transform 220ms ease;
+}
+
+@keyframes notification-enter {
+    from {
+        opacity: 0;
+        transform: translateX(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.mayor-card {
+    border: 1px solid #5f4129;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(40, 22, 11, 0.9) 0%, rgba(24, 13, 7, 0.95) 100%);
+    padding: 0.9rem;
+    margin-bottom: 0.8rem;
+}
+
+.mayor-status-card,
+.mayor-actions-card,
+.mayor-facilities-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.mayor-status-card::before,
+.mayor-actions-card::before,
+.mayor-facilities-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(255, 228, 182, 0.05) 0%, rgba(255, 228, 182, 0) 28%);
+}
+
+.mayor-card-title {
+    margin: 0 0 0.4rem;
+    font-family: var(--hud-title-font);
+    font-size: 1.1rem;
+}
+
+.mayor-status-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .5rem;
+    margin-bottom: .7rem;
+}
+
+.mayor-status-chip {
+    display: flex;
+    flex-direction: column;
+    gap: .12rem;
+    min-width: 0;
+    padding: .55rem .65rem;
+    border: 1px solid #6f4d33;
+    border-radius: 10px;
+    background: rgba(17, 9, 5, 0.54);
+}
+
+.mayor-status-chip-label {
+    color: #d6b37c;
+    font-size: .72rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.mayor-status-chip-value {
+    color: #f7e0b5;
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mayor-status-text,
+.mayor-reputation-text,
+.mayor-election-text {
+    margin: 0.2rem 0;
+}
+
+.mayor-actions-hint,
+.mayor-facilities-subtitle {
+    margin: 0 0 .65rem;
+    color: #d8b985;
+    font-size: .9rem;
+    line-height: 1.35;
+}
+
+.treasury-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .55rem;
+    margin-bottom: .8rem;
+}
+
+.treasury-stat {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    padding: .7rem .75rem;
+    border: 1px solid #6e4f37;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(26, 15, 8, .92) 0%, rgba(17, 9, 5, .78) 100%);
+}
+
+.treasury-stat-label {
+    color: #d6b37c;
+    font-size: .72rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.treasury-stat-value {
+    color: #f7e0b5;
+    font-size: 1.02rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.treasury-stat-value.is-city {
+    color: #f0c878;
+}
+
+.treasury-stat-value.is-company {
+    color: #9fe0a1;
+}
+
+.treasury-stat-value.is-authority {
+    color: #d8b985;
+}
+
+.treasury-transfer-card {
+    padding: .85rem;
+    border: 1px solid #5f4129;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(33, 18, 10, .94) 0%, rgba(18, 10, 6, .96) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 228, 182, .04);
+    margin-bottom: .8rem;
+}
+
+.treasury-transfer-header {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    margin-bottom: .7rem;
+}
+
+.treasury-transfer-title {
+    margin: 0;
+    color: #f7e0b5;
+    font-size: .98rem;
+}
+
+.treasury-transfer-meta {
+    margin: 0;
+    color: #d8b985;
+    font-size: .85rem;
+    line-height: 1.35;
+}
+
+.mayor-action-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.treasury-transfer-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+}
+
+.treasury-transfer-legend {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.treasury-transfer-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .2rem .55rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border: 1px solid #5f4129;
+    background: rgba(17, 9, 5, 0.55);
+}
+
+.treasury-transfer-legend-item.is-out {
+    color: #ee948a;
+}
+
+.treasury-transfer-legend-item.is-in {
+    color: #a7f2a8;
+}
+
+.treasury-controls-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .65rem;
+    margin-top: .75rem;
+}
+
+.treasury-control-card {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    padding: .75rem;
+    border: 1px solid #5a3e28;
+    border-radius: 12px;
+    background: rgba(17, 9, 5, 0.58);
+}
+
+.treasury-control-title {
+    margin: 0;
+    color: #f7e0b5;
+    font-size: .96rem;
+}
+
+.treasury-control-text {
+    margin: 0;
+    color: #d8b985;
+    font-size: .86rem;
+    line-height: 1.35;
+}
+
+.treasury-control-row {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.treasury-transfer-card .trade-slider {
+    height: 3.8rem;
+}
+
+.treasury-transfer-card .trade-slider-handle {
+    width: 5.4rem;
+}
+
+.treasury-transfer-card .trade-slider-handle-price {
+    font-size: .98rem;
+}
+
+.treasury-transfer-card .trade-slider-handle-amount {
+    font-size: 1rem;
+}
+
+.mayor-amount-input,
+.mayor-select,
+.mayor-action-btn {
+    border: 1px solid #7a5a43;
+    border-radius: 8px;
+    color: #f5e2c6;
+    background: rgba(22, 12, 7, 0.82);
+    padding: 0.45rem 0.55rem;
+    font-family: var(--hud-font);
+}
+
+.mayor-amount-input,
+.mayor-select {
+    min-width: 130px;
+}
+
+.mayor-action-btn {
+    cursor: pointer;
+}
+
+.mayor-action-btn:hover {
+    border-color: #b38a5f;
+}
+
+.mayor-action-btn-wide {
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.mayor-card.is-disabled {
+    opacity: 0.65;
+}
+
+.mayor-log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+}
+
+.mayor-log-item {
+    border: 1px solid #4e3625;
+    border-radius: 8px;
+    padding: 0.35rem 0.45rem;
+    font-size: 0.88rem;
+    background: rgba(17, 9, 5, 0.6);
+}
+
+.mayor-log-empty {
+    margin: 0;
+    color: #d8b985;
+}
+
+.mayor-facility-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: .55rem;
+}
+
+.mayor-facility-card {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .7rem;
+    border: 1px solid #5a3e28;
+    border-radius: 12px;
+    background: rgba(17, 9, 5, 0.64);
+    box-shadow: inset 0 1px 0 rgba(255, 228, 182, .04);
+}
+
+.mayor-facility-icon {
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
+.mayor-facility-body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .22rem;
+    flex: 1;
+}
+
+.mayor-facility-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.mayor-facility-name {
+    margin: 0;
+    font-size: .98rem;
+    color: #f7e0b5;
+}
+
+.mayor-facility-count {
+    flex-shrink: 0;
+    padding: .18rem .5rem;
+    border: 1px solid #6d5038;
+    border-radius: 999px;
+    background: rgba(38, 21, 12, 0.85);
+    color: #d8b985;
+    font-size: .72rem;
+    white-space: nowrap;
+}
+
+.mayor-facility-output {
+    margin: 0;
+    color: #f0c878;
+    font-size: .9rem;
+    font-weight: 700;
+}
+
+.mayor-facility-cost {
+    margin: 0;
+    color: #c9a87c;
+    font-size: .82rem;
+}
+
 .modal-panel p {
     margin: .35rem 0;
 }
@@ -458,6 +893,80 @@ body.intro-active .modal:not(.hidden) {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: .8rem;
+}
+
+.production-facility-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #5a3e28;
+}
+
+.production-facility-title {
+    margin: 0 0 .75rem;
+    color: #f0c878;
+    font-family: var(--hud-title-font);
+    font-size: 1rem;
+    text-align: center;
+}
+
+.production-facility-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: .75rem;
+}
+
+.production-facility-card {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    padding: .8rem;
+    background: linear-gradient(180deg, rgba(43, 26, 16, .92) 0%, rgba(24, 14, 9, .96) 100%);
+    border: 1px solid #5a3e28;
+    border-radius: 12px;
+    box-shadow: inset 0 1px 0 rgba(255, 228, 182, .05);
+}
+
+.production-facility-icon {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.production-facility-content {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+}
+
+.production-facility-name {
+    margin: 0;
+    color: #f7e0b5;
+    font-size: 1rem;
+}
+
+.production-facility-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+}
+
+.production-facility-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.6rem;
+    padding: .18rem .5rem;
+    border: 1px solid #4e3321;
+    border-radius: 999px;
+    background: rgba(26, 15, 8, .82);
+    color: #f0c878;
+    font-size: .78rem;
+    white-space: nowrap;
+}
+
+.production-facility-chip-muted {
+    color: #c9a87c;
 }
 
 .production-card {
@@ -966,6 +1475,11 @@ body.intro-active .modal:not(.hidden) {
         margin-right: 2.7rem;
     }
 
+    .treasury-summary-grid,
+    .treasury-controls-grid {
+        grid-template-columns: 1fr;
+    }
+
     .trade-selector-row {
         grid-template-columns: 1fr;
     }
@@ -991,6 +1505,10 @@ body.intro-active .modal:not(.hidden) {
     .trade-slider-handle {
         width: 4.25rem;
         min-height: 2.7rem;
+    }
+
+    .treasury-transfer-card .trade-slider-handle {
+        width: 4.55rem;
     }
 }
 
@@ -1073,6 +1591,15 @@ body.intro-active .hud-action-pill {
     margin: 0 .12em;
     line-height: 1.3;
     box-shadow: 0 1px 0 rgba(139, 106, 80, .35);
+}
+
+.tutorial-body img {
+    display: inline-block;
+    margin: 0 .12em;
+    line-height: 1.3;
+    height: 24px;
+    aspect-ratio: 1/1;
+    transform: translateY(30%);
 }
 
 .tutorial-dot {

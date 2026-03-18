@@ -8,7 +8,7 @@
 
 import { Engine } from "./ecs/Engine";
 import { HUDcontroller } from "./render/HUDcontroller";
-import { City, CityProduction, Gold, IsPlayerOwned, Market, Merchant, Name } from "./gameplay/components";
+import { City, CityProduction, CityTreasury, Gold, IsPlayerOwned, Market, Merchant, Name } from "./gameplay/components";
 import { GoodsRegistry } from "./gameplay/GoodsRegistry";
 import { DEMAND_DAYS_PER_WEEK } from "./gameplay/GameTime";
 
@@ -79,7 +79,7 @@ function getOverview(): void {
     // ---- City money ----
     const cityMoney: CityMoney[] = cities.map(city => ({
         city: city.getComponent(Name)!.value as string,
-        gold: Math.round(city.getComponent(Gold)?.amount ?? 0),
+        gold: Math.round(city.getComponent(CityTreasury)?.amount ?? 0),
     })).sort((a, b) => b.gold - a.gold);
 
     // ---- Per-good aggregation ----

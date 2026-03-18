@@ -1,5 +1,5 @@
 import type { World } from "../ecs/Engine";
-import { City, Gold, Inventory, IsPlayerOwned, Kontor, Market, Merchant, Name, NavigationPath, PlayerControlled, Position, Ship, TravelRoute, ActiveShip, ShipType, ShipBuildOrder } from "../gameplay/components";
+import { City, CityFacilities, CityGovernance, CityTreasury, Gold, Inventory, IsPlayerOwned, Kontor, Market, Merchant, Name, NavigationPath, PlayerControlled, PlayerIsMayor, Position, Ship, TravelRoute, ActiveShip, ShipType, ShipBuildOrder } from "../gameplay/components";
 import { GameTime } from "../gameplay/GameTime";
 import { GoodsRegistry } from "../gameplay/GoodsRegistry";
 import { Entity } from "../ecs/Entity";
@@ -8,7 +8,7 @@ import type { ShipClassName } from "../gameplay/components/identity";
 const SAVEGAME_KEY = "hanse2.savegame";
 const INTRO_SEEN_KEY = "hanse2.intro-seen";
 const TUTORIAL_SEEN_KEY = "hanse2.tutorial-seen";
-const SAVEGAME_VERSION = 2;
+const SAVEGAME_VERSION = 4;
 const AUTOSAVE_INTERVAL_MS = 15000;
 
 interface SavedInventory {
@@ -52,6 +52,31 @@ interface SavedBuildOrder {
     buildDurationRealSeconds: number;
 }
 
+interface SavedTreasuryLogEntry {
+    timestamp: number;
+    type: "election_fee" | "election_win" | "city_to_player" | "player_to_city" | "population_investment" | "facility_construction";
+    amount: number;
+    cityBalanceAfter: number;
+    playerBalanceAfter: number;
+    note: string;
+}
+
+interface SavedFacility {
+    goodName: string;
+    weeklyOutput: number;
+    treasuryCost: number;
+}
+
+interface SavedGovernance {
+    reputationPercent: number;
+    lastElectionWeek: number;
+    incumbentLocked: boolean;
+    candidateForElection: boolean;
+    candidacyPaidWeek: number;
+    electionEligible: boolean;
+    treasuryLog: SavedTreasuryLogEntry[];
+}
+
 export interface SaveGameData {
     version: number;
     savedAt: string;
@@ -72,13 +97,18 @@ export interface SaveGameData {
     shipBuildOrders?: SavedBuildOrder[];
     kontors: Array<{
         name: string;
+        cityName?: string;
         gold: number;
         inventory: SavedInventory;
     }>;
     cities: Array<{
         name: string;
         gold: number;
+        treasury: number;
         market: Record<string, SavedMarketEntry>;
+        governance?: SavedGovernance;
+        facilities?: SavedFacility[];
+        playerIsMayor?: boolean;
     }>;
 }
 
@@ -96,8 +126,8 @@ export class SaveGameManager {
 
         try {
             const parsed = JSON.parse(raw) as SaveGameData;
-            // Accept v1 (migrate) and v2
-            if (parsed.version !== SAVEGAME_VERSION && parsed.version !== 1) {
+            // Accept v1/v2/v3 for migration and v4 current format.
+            if (parsed.version !== SAVEGAME_VERSION && parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) {
                 this.clearSave();
                 return null;
             }
@@ -115,6 +145,26 @@ export class SaveGameManager {
                 }];
                 parsed.shipBuildOrders = [];
                 parsed.version = 2;
+            }
+            // Migrate older saves to v4 with a separate city treasury.
+            if (parsed.version === 2 || parsed.version === 3) {
+                parsed.version = 4;
+                parsed.cities = parsed.cities.map(city => ({
+                    ...city,
+                    treasury: city.gold,
+                    gold: 10_000,
+                    governance: {
+                        reputationPercent: city.governance?.reputationPercent ?? 0,
+                        lastElectionWeek: city.governance?.lastElectionWeek ?? 0,
+                        incumbentLocked: city.governance?.incumbentLocked ?? false,
+                        candidateForElection: city.governance?.candidateForElection ?? false,
+                        candidacyPaidWeek: city.governance?.candidacyPaidWeek ?? 0,
+                        electionEligible: city.governance?.electionEligible ?? true,
+                        treasuryLog: city.governance?.treasuryLog ?? [],
+                    },
+                    facilities: city.facilities ?? [],
+                    playerIsMayor: city.playerIsMayor ?? false,
+                }));
             }
             return parsed;
         } catch {
@@ -275,12 +325,36 @@ export class SaveGameManager {
         }
 
         // ---- Kontors ----
+        const citiesByName = new Map(
+            world.query(City, Name, Position).map(entity => [entity.getComponent(Name)?.value, entity]),
+        );
+
         const kontorsByName = new Map(
             world.query(Kontor, Name, Inventory).map(entity => [entity.getComponent(Name)?.value, entity]),
         );
 
         for (const savedKontor of saveData.kontors) {
-            const entity = kontorsByName.get(savedKontor.name);
+            let entity = kontorsByName.get(savedKontor.name);
+
+            if (!entity) {
+                const derivedCityName = savedKontor.cityName ?? savedKontor.name.replace(/^Kontor\s+/, "");
+                const cityEntity = citiesByName.get(derivedCityName);
+                const cityPos = cityEntity?.getComponent(Position);
+
+                if (cityPos) {
+                    entity = new Entity()
+                        .addComponent(new Position(cityPos.x, cityPos.y))
+                        .addComponent(new Name(savedKontor.name))
+                        .addComponent(new Kontor(250))
+                        .addComponent(new IsPlayerOwned(true))
+                        .addComponent(new Inventory())
+                        .addComponent(new Gold(0));
+
+                    world.addEntity(entity);
+                    kontorsByName.set(savedKontor.name, entity);
+                }
+            }
+
             if (!entity) continue;
             const inventory = entity.getComponent(Inventory);
             const gold = entity.getComponent(Gold);
@@ -288,17 +362,24 @@ export class SaveGameManager {
             if (gold) gold.amount = savedKontor.gold;
         }
 
-        const citiesByName = new Map(
+        const citiesWithMarketByName = new Map(
             world.query(City, Name, Market).map(entity => [entity.getComponent(Name)?.value, entity]),
         );
 
         for (const savedCity of saveData.cities) {
-            const entity = citiesByName.get(savedCity.name);
+            const entity = citiesWithMarketByName.get(savedCity.name);
             if (!entity) continue;
 
             const gold = entity.getComponent(Gold);
             const market = entity.getComponent(Market);
             if (gold) gold.amount = savedCity.gold;
+
+            let treasury = entity.getComponent(CityTreasury);
+            if (!treasury) {
+                treasury = new CityTreasury();
+                entity.addComponent(treasury);
+            }
+            treasury.amount = savedCity.treasury ?? savedCity.gold;
             if (!market) continue;
 
             for (const [goodName, marketEntry] of Object.entries(savedCity.market)) {
@@ -308,6 +389,30 @@ export class SaveGameManager {
                     supply: marketEntry.supply,
                     demandFactor: marketEntry.demandFactor,
                 });
+            }
+
+            const governance = entity.getComponent(CityGovernance);
+            if (governance && savedCity.governance) {
+                governance.reputationPercent = savedCity.governance.reputationPercent;
+                governance.lastElectionWeek = savedCity.governance.lastElectionWeek;
+                governance.incumbentLocked = savedCity.governance.incumbentLocked;
+                governance.candidateForElection = savedCity.governance.candidateForElection;
+                governance.candidacyPaidWeek = savedCity.governance.candidacyPaidWeek;
+                governance.electionEligible = savedCity.governance.electionEligible;
+                governance.treasuryLog.length = 0;
+                governance.treasuryLog.push(...savedCity.governance.treasuryLog);
+            }
+
+            let facilities = entity.getComponent(CityFacilities);
+            if (!facilities) {
+                facilities = new CityFacilities();
+                entity.addComponent(facilities);
+            }
+            facilities.restore(savedCity.facilities ?? []);
+
+            entity.removeComponent(PlayerIsMayor);
+            if (savedCity.playerIsMayor) {
+                entity.addComponent(new PlayerIsMayor());
             }
         }
     }
@@ -389,6 +494,8 @@ export class SaveGameManager {
             });
         }
 
+        const cities = world.query(City, Name, Position);
+
         // ---- Serialize build orders ----
         const buildOrders: SavedBuildOrder[] = [];
         for (const entity of world.query(ShipBuildOrder)) {
@@ -423,15 +530,50 @@ export class SaveGameManager {
             } : { position: { x: 0, y: 0 }, gold: 0, inventory: {}, travelRoute: null, navigationPath: null },
             playerShips: serializedShips,
             shipBuildOrders: buildOrders,
-            kontors: world.query(Kontor, Name, Inventory).map(entity => ({
-                name: entity.getComponent(Name)?.value ?? "Kontor",
-                gold: entity.getComponent(Gold)?.amount ?? 0,
-                inventory: this.serializeInventory(entity.getComponent(Inventory)!),
-            })),
+            kontors: world.query(Kontor, Name, Inventory).map(entity => {
+                const name = entity.getComponent(Name)?.value ?? "Kontor";
+                const pos = entity.getComponent(Position);
+                const cityName = pos
+                    ? cities.find(city => {
+                        const cityPos = city.getComponent(Position);
+                        return !!cityPos && Math.abs(cityPos.x - pos.x) < 0.001 && Math.abs(cityPos.y - pos.y) < 0.001;
+                    })?.getComponent(Name)?.value
+                    : undefined;
+
+                return {
+                    name,
+                    cityName,
+                    gold: entity.getComponent(Gold)?.amount ?? 0,
+                    inventory: this.serializeInventory(entity.getComponent(Inventory)!),
+                };
+            }),
             cities: world.query(City, Name, Market).map(entity => ({
                 name: entity.getComponent(Name)?.value ?? "City",
                 gold: entity.getComponent(Gold)?.amount ?? 0,
+                treasury: entity.getComponent(CityTreasury)?.amount ?? 0,
                 market: this.serializeMarket(entity.getComponent(Market)!),
+                governance: (() => {
+                    const governance = entity.getComponent(CityGovernance);
+                    if (!governance) return undefined;
+                    return {
+                        reputationPercent: governance.reputationPercent,
+                        lastElectionWeek: governance.lastElectionWeek,
+                        incumbentLocked: governance.incumbentLocked,
+                        candidateForElection: governance.candidateForElection,
+                        candidacyPaidWeek: governance.candidacyPaidWeek,
+                        electionEligible: governance.electionEligible,
+                        treasuryLog: governance.treasuryLog.map(entry => ({
+                            timestamp: entry.timestamp,
+                            type: entry.type,
+                            amount: entry.amount,
+                            cityBalanceAfter: entry.cityBalanceAfter,
+                            playerBalanceAfter: entry.playerBalanceAfter,
+                            note: entry.note,
+                        })),
+                    };
+                })(),
+                facilities: entity.getComponent(CityFacilities)?.serialize() ?? [],
+                playerIsMayor: entity.hasComponent(PlayerIsMayor),
             })),
         };
     }

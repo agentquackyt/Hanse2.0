@@ -11,3 +11,6 @@ export class ShadowProducer extends Component {}
 
 /** Marks which player ship is currently selected / active. */
 export class ActiveShip extends Component {}
+
+/** Marks city where the player is currently the mayor. */
+export class PlayerIsMayor extends Component {}

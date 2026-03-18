@@ -5,10 +5,11 @@ import {
     Market, PlayerControlled, CityProduction,
     IsPlayerOwned, Kontor, Merchant, ShadowProducer,
     ActiveShip, ShipType,
+    CityGovernance, CityFacilities, CityTreasury,
     type TradeGood, type MarketEntry,
 } from "./gameplay/components";
 import { HUDcontroller } from "./render/HUDcontroller";
-import { GameTimeSystem, MovementSystem, MarketSystem, TradeSystem, ShipBuildSystem } from "./gameplay/systems";
+import { ElectionSystem, GameTimeSystem, MayorSystem, MovementSystem, MarketSystem, TradeSystem, ShipBuildSystem } from "./gameplay/systems";
 import { MapRenderSystem } from "./render/RenderSystem";
 import { loadMapData } from "./navigation/MapData";
 import { NavigationGraph } from "./navigation/Graph";
@@ -37,12 +38,15 @@ world
     .addTickSystem(new GameTimeSystem())
     .addTickSystem(new MovementSystem())
     .addTickSystem(new MarketSystem())
+    .addTickSystem(new ElectionSystem())
     .addTickSystem(new ShipBuildSystem())
     .addTickSystem(renderSystem);
 
 export const tradeSystem = new TradeSystem();
+export const mayorSystem = new MayorSystem();
 export { renderSystem };
 tradeSystem.world = world;
+mayorSystem.world = world;
 
 /** Initialise the game world from JSON data files. Must be awaited before engine.start(). */
 export async function initWorld(saveGame: SaveGameData | null = null): Promise<void> {
@@ -82,7 +86,10 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
             .addComponent(new Name(name))
             .addComponent(new City(citizens))
             .addComponent(new Gold(10_000))
+            .addComponent(new CityTreasury(0))
             .addComponent(new CityProduction(citizens, multipliers))
+            .addComponent(new CityGovernance())
+            .addComponent(new CityFacilities())
             .addComponent(new Market(marketEntries));
         world.addEntity(city);
     }
@@ -126,6 +133,7 @@ export async function initWorld(saveGame: SaveGameData | null = null): Promise<v
     world.addEntity(shadowProducer);
 
     HUDcontroller.getInstance().setTradeSystem(tradeSystem);
+    HUDcontroller.getInstance().setMayorSystem(mayorSystem);
     HUDcontroller.getInstance().setPlayerShip(playerShip);
     HUDcontroller.getInstance().setPlayerCompany(playerCompany);
     HUDcontroller.getInstance().setWorld(world);

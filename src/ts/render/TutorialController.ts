@@ -31,6 +31,10 @@ const STEPS: TutorialStep[] = [
         body: `Click a city where your ship is docked to open its trade panel. Use the sliders to buy or sell goods - buy cheap, sail to another port, and sell for profit!`,
     },
     {
+        title: "Scarce Goods",
+        body: `Some goods are scarce in certain cities. Keep an eye out for these opportunities to buy low and sell high! <br> If you see an good icon (for example <img src="./assets/images/icons/gewuerze.png" alt="Spices" />) next to a city, it indicates the most scarce good in that city's market.`,
+    },
+    {
         title: "Shipbuilding",
         body: `Open a city and switch to the <strong>Production</strong> tab to inspect its <strong>Shipyard</strong>. If no vessel is already under construction, you can order a new ship there as soon as your company can afford the price and materials.`,
     },
@@ -38,6 +42,10 @@ const STEPS: TutorialStep[] = [
         title: "Kontors",
         body: `A Kontor is your warehouse in a city. It stores goods and gold while your ship sails on. You start with a Kontor in your home city, Lübeck. `,
     },
+    {
+        title: "Becoming Mayor",
+        body: `If you build up enough reputation in a city, you can run for mayor there. Winning the election grants you a powerful bonus and a steady income from the city treasury. <br> To gain reputation, keep the city's market satisfied by ensuring its supply meets demand. If the market is scarce (supply is very low compared to demand), you gain reputation by selling goods there. If the market is oversupplied, you gain reputation by buying goods and helping to balance it out!`,
+    }
 ];
 
 export class TutorialController {

@@ -94,7 +94,6 @@ export class ShadowProductionAlgorithm {
         // ---- 3. Shadow absorption (oversupply removal) ----
         for (const city of cities) {
             const market   = city.getComponent(Market)!;
-            const cityGold = city.getComponent(Gold);
             const cityName = city.getComponent(Name)?.value ?? city.id;
 
             for (const [good, entry] of market.goods()) {
@@ -104,12 +103,7 @@ export class ShadowProductionAlgorithm {
                     const toBuy  = Math.min(excess * PRODUCTION_RATE * dayFraction, MAX_PER_TRADE);
                     if (toBuy <= 0) continue;
 
-                    const unitCost = good.buyPrice;
-                    const totalCost = toBuy * unitCost;
-                    if (shadowGold.amount < totalCost) continue;
-
-                    shadowGold.amount -= totalCost;
-                    if (cityGold) cityGold.amount += totalCost;
+                    if (shadowGold.amount <= 0) continue;
                     market.update(good, { supply: entry.supply - toBuy });
                     shadowInv.add(good, toBuy);
                     console.log(`  [absorb]  ${cityName} / ${good.name}  absorbed=${toBuy.toFixed(2)}  citySupply→${(entry.supply - toBuy).toFixed(1)}`);
@@ -168,7 +162,6 @@ export class ShadowProductionAlgorithm {
         interface EligibleCity {
             market: Market;
             entry: MarketEntry;
-            cityGold: Gold | undefined;
             cityName: string | number;
         }
 
@@ -184,7 +177,6 @@ export class ShadowProductionAlgorithm {
                 eligible.push({
                     market,
                     entry,
-                    cityGold: city.getComponent(Gold),
                     cityName: city.getComponent(Name)?.value ?? city.id,
                 });
             }
@@ -192,26 +184,19 @@ export class ShadowProductionAlgorithm {
             // Highest price first → city with lowest supply ratio receives goods first
             eligible.sort((a, b) => b.market.currentPrice(good) - a.market.currentPrice(good));
 
-            for (const { market, entry, cityGold, cityName } of eligible) {
+            for (const { market, entry, cityName } of eligible) {
                 const available = shadowInv.get(good);
                 if (available <= 0) break;
 
                 const target = entry.demand * IMPORT_TARGET - entry.supply;
                 if (target <= 0) continue;
 
-                const exactAffordable = cityGold ? Math.floor(Math.max(0, cityGold.amount) / good.buyPrice) : MAX_PER_TRADE;
-                const affordable = Math.max(exactAffordable, 20); // Always allow at least 20 units to prevent deadlocks when cities go broke
-                const qty = Math.min(target, available, affordable, MAX_PER_TRADE);
+                const qty = Math.min(target, available, MAX_PER_TRADE);
                 if (qty <= 0) continue;
 
-                const cost = qty * good.buyPrice;
                 shadowInv.remove(good, qty);
-                if (cityGold) {
-                    cityGold.amount = Math.max(0, cityGold.amount - cost);
-                }
-                shadowGold.amount += cost;
                 market.update(good, { supply: entry.supply + qty });
-                console.log(`  [distrib] ${cityName} / ${good.name}  qty=${qty.toFixed(2)}  cost=${cost.toFixed(0)}  citySupply→${(entry.supply + qty).toFixed(1)}`);
+                console.log(`  [distrib] ${cityName} / ${good.name}  qty=${qty.toFixed(2)}  citySupply→${(entry.supply + qty).toFixed(1)}`);
             }
         }
 

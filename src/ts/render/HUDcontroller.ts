@@ -1,13 +1,15 @@
 import type { Entity } from "../ecs/Entity";
 import type { World } from "../ecs/Engine";
-import { City, Market, Name, Inventory, Ship, ShipType, Gold, CityProduction, Kontor, PlayerControlled, IsPlayerOwned, type TradeGood, Position, TravelRoute, ShipBuildOrder } from "../gameplay/components";
-import type { TradeSystem } from "../gameplay/systems";
+import { City, CityFacilities, CityGovernance, CityTreasury, Market, Name, Inventory, Ship, ShipType, Gold, CityProduction, Kontor, PlayerControlled, IsPlayerOwned, PlayerIsMayor, type TradeGood, Position, TravelRoute, ShipBuildOrder } from "../gameplay/components";
+import type { MayorSystem, TradeSystem } from "../gameplay/systems";
 import { GoodsRegistry, type ShipTypeConfig } from "../gameplay/GoodsRegistry";
 import type { ShipClassName } from "../gameplay/components/identity";
 import { demandAlgorithm } from "../gameplay/algorithms/EconomyAlgorithms";
 import { SatisfactionAlgorithm, SatisfactionLevel, GROWTH_BASE_PER_WEEK } from "../gameplay/algorithms/SatisfactionAlgorithm";
 import { GameTime, REAL_SECONDS_PER_DAY } from "../gameplay/GameTime";
 import { Entity as EntityClass } from "../ecs/Entity";
+import { MAYOR_POPULATION_GOLD_COST, MAYOR_POPULATION_GAIN } from "../gameplay/systems";
+import { ELECTION_FEE_GOLD } from "../gameplay/systems";
 
 /** Map a slider value (0–100) to a quantity via log scale. */
 function sliderQty(v: number, maxQty: number): number {
@@ -29,6 +31,7 @@ export class HUDcontroller {
     private _isShowingModal: boolean = false;
     private _isOnSea: boolean = false;
     private _tradeSystem: TradeSystem | null = null;
+    private _mayorSystem: MayorSystem | null = null;
     private _playerShip: Entity | null = null;
     private _playerCompany: Entity | null = null;
     private _world: World | null = null;
@@ -69,6 +72,10 @@ export class HUDcontroller {
 
     public setTradeSystem(ts: TradeSystem): void {
         this._tradeSystem = ts;
+    }
+
+    public setMayorSystem(ms: MayorSystem): void {
+        this._mayorSystem = ms;
     }
 
     public setPlayerShip(ship: Entity): void {
@@ -169,8 +176,9 @@ export class HUDcontroller {
         const cityComp = city.getComponent(City);
         const nameComp = city.getComponent(Name);
         const market = city.getComponent(Market);
-        const cityGold = city.getComponent(Gold);
+        const cityTreasury = city.getComponent(CityTreasury);
         const production = city.getComponent(CityProduction);
+        const governance = city.getComponent(CityGovernance);
         if (!cityComp || !nameComp) return;
 
         const registry = GoodsRegistry.getInstance();
@@ -273,7 +281,7 @@ export class HUDcontroller {
                 if (market) {
                     for (const [, entry] of market.goods()) totalStock += Math.floor(entry.supply);
                 }
-                return `${option.label}: ${cityGold?.amount ?? 0}£ · ${totalStock} stock`;
+                return `${option.label}: ${cityTreasury?.amount ?? 0}£ · ${totalStock} stock`;
             }
 
             const inventory = getEndpointInventory(id);
@@ -319,32 +327,41 @@ export class HUDcontroller {
 
             const mode = getDirectionalMode(sourceId, targetId);
             const entry = market?.getEntry(good);
+            const sourceEntity = getEndpoint(sourceId).entity;
+            const targetEntity = getEndpoint(targetId).entity;
             const sourceInv = getEndpointInventory(sourceId);
             const targetInv = getEndpointInventory(targetId);
             const sourceGold = getEndpointGold(sourceId);
             const targetGold = getEndpointGold(targetId);
 
             if (mode === "trade-buy") {
-                if (!entry || !targetInv || !targetGold) return false;
+                if (!entry || !targetInv || !targetGold || !targetEntity || !this._tradeSystem) return false;
                 if (entry.supply < quantity) return false;
                 if (targetInv.totalUnits() + quantity > getEndpointCapacity(targetId)) return false;
-                const totalCost = getDirectionalQuote(good, quantity, sourceId, targetId);
-                if (targetGold.amount < totalCost) return false;
-                targetInv.add(good, quantity);
-                targetGold.amount -= totalCost;
-                if (cityGold) cityGold.amount += totalCost;
-                market!.update(good, { supply: Math.max(0, entry.supply - quantity) });
-                return true;
+
+                const before = targetInv.get(good);
+                this._tradeSystem.handle({
+                    direction: "buy",
+                    shipId: targetEntity.id,
+                    cityId: city.id,
+                    good,
+                    quantity,
+                });
+                return targetInv.get(good) > before;
             }
 
             if (mode === "trade-sell") {
-                if (!entry || !sourceInv || !sourceGold) return false;
-                if (!sourceInv.remove(good, quantity)) return false;
-                const totalRevenue = getDirectionalQuote(good, quantity, sourceId, targetId);
-                sourceGold.amount += totalRevenue;
-                if (cityGold) cityGold.amount = Math.max(0, cityGold.amount - totalRevenue);
-                market!.update(good, { supply: entry.supply + quantity });
-                return true;
+                if (!entry || !sourceInv || !sourceGold || !sourceEntity || !this._tradeSystem) return false;
+
+                const before = sourceInv.get(good);
+                this._tradeSystem.handle({
+                    direction: "sell",
+                    shipId: sourceEntity.id,
+                    cityId: city.id,
+                    good,
+                    quantity,
+                });
+                return sourceInv.get(good) < before;
             }
 
             if (mode === "transfer") {
@@ -390,7 +407,7 @@ export class HUDcontroller {
         // Tabs
         const tabBar = document.createElement("div");
         tabBar.classList.add("modal-tabs");
-        const tabs = ["City", "Production", "Shipyard", "Trade"] as const;
+        const tabs = ["City", "Production", "Shipyard", "Mayor", "Trade"] as const;
         let activeTab: Lowercase<typeof tabs[number]> = "city";
         const panels: HTMLElement[] = [];
 
@@ -623,6 +640,123 @@ export class HUDcontroller {
         productionEmptyState.textContent = "No production data.";
         prodPanel.appendChild(productionEmptyState);
 
+        interface FacilitySummary {
+            goodName: string;
+            weeklyOutput: number;
+            treasuryCost: number;
+            count: number;
+        }
+
+        const getFacilitySummaries = (): FacilitySummary[] => {
+            const facilities = city.getComponent(CityFacilities)?.serialize() ?? [];
+            const summaries = new Map<string, FacilitySummary>();
+
+            for (const facility of facilities) {
+                const current = summaries.get(facility.goodName);
+                if (current) {
+                    current.weeklyOutput += facility.weeklyOutput;
+                    current.treasuryCost += facility.treasuryCost;
+                    current.count += 1;
+                } else {
+                    summaries.set(facility.goodName, {
+                        goodName: facility.goodName,
+                        weeklyOutput: facility.weeklyOutput,
+                        treasuryCost: facility.treasuryCost,
+                        count: 1,
+                    });
+                }
+            }
+
+            return [...summaries.values()].sort((a, b) => b.weeklyOutput - a.weeklyOutput || a.goodName.localeCompare(b.goodName));
+        };
+
+        const productionFacilitySection = document.createElement("section");
+        productionFacilitySection.classList.add("production-facility-section");
+
+        const productionFacilityTitle = document.createElement("h3");
+        productionFacilityTitle.classList.add("production-facility-title");
+        productionFacilityTitle.textContent = "Production Facilities";
+
+        const productionFacilityGrid = document.createElement("div");
+        productionFacilityGrid.classList.add("production-facility-grid");
+
+        const productionFacilityEmptyState = document.createElement("p");
+        productionFacilityEmptyState.classList.add("production-empty-state");
+        productionFacilityEmptyState.textContent = "No production facilities built yet.";
+
+        productionFacilitySection.appendChild(productionFacilityTitle);
+        productionFacilitySection.appendChild(productionFacilityGrid);
+        productionFacilitySection.appendChild(productionFacilityEmptyState);
+        prodPanel.appendChild(productionFacilitySection);
+
+        interface FacilityCardState {
+            outputValue: HTMLSpanElement;
+            countValue: HTMLSpanElement;
+            costValue: HTMLSpanElement;
+        }
+
+        const productionFacilityStates = new Map<string, FacilityCardState>();
+
+        const refreshProductionFacilities = () => {
+            const summaries = getFacilitySummaries();
+            productionFacilityGrid.innerHTML = "";
+            productionFacilityStates.clear();
+
+            const hasFacilities = summaries.length > 0;
+            productionFacilitySection.classList.toggle("hidden", !hasFacilities);
+            productionFacilityGrid.classList.toggle("hidden", !hasFacilities);
+            productionFacilityEmptyState.classList.toggle("hidden", hasFacilities);
+
+            if (!hasFacilities) return;
+
+            for (const summary of summaries) {
+                const good = registry.getGood(summary.goodName);
+                if (!good) continue;
+
+                const card = document.createElement("article");
+                card.classList.add("production-facility-card");
+
+                const icon = document.createElement("img");
+                icon.classList.add("production-facility-icon");
+                icon.src = `./assets/images/icons/${good.img}`;
+                icon.alt = good.name;
+
+                const content = document.createElement("div");
+                content.classList.add("production-facility-content");
+
+                const name = document.createElement("h4");
+                name.classList.add("production-facility-name");
+                name.textContent = good.name;
+
+                const meta = document.createElement("div");
+                meta.classList.add("production-facility-meta");
+
+                const outputValue = document.createElement("span");
+                outputValue.classList.add("production-facility-chip");
+                outputValue.textContent = `+${summary.weeklyOutput.toLocaleString()}/week`;
+
+                const countValue = document.createElement("span");
+                countValue.classList.add("production-facility-chip", "production-facility-chip-muted");
+                countValue.textContent = summary.count > 1 ? `${summary.count} sites` : "1 site";
+
+                const costValue = document.createElement("span");
+                costValue.classList.add("production-facility-chip", "production-facility-chip-muted");
+                costValue.textContent = `${summary.treasuryCost.toLocaleString()} gold invested`;
+
+                meta.appendChild(outputValue);
+                meta.appendChild(countValue);
+                meta.appendChild(costValue);
+
+                content.appendChild(name);
+                content.appendChild(meta);
+                card.appendChild(icon);
+                card.appendChild(content);
+                productionFacilityGrid.appendChild(card);
+
+                productionFacilityStates.set(summary.goodName, { outputValue, countValue, costValue });
+            }
+        };
+
         // ---- Shipyard containers (placed in own tab panel below) ----
         const shipyardGrid = document.createElement("div");
         shipyardGrid.classList.add("shipyard-grid");
@@ -843,25 +977,27 @@ export class HUDcontroller {
             productionGrid.classList.toggle("hidden", !hasProductionData);
             productionEmptyState.classList.toggle("hidden", hasProductionData);
 
-            if (!hasProductionData || !production || !market) {
-                return;
+            if (hasProductionData && production && market) {
+                for (const [goodName, state] of productionStates) {
+                    const good = registry.getGood(goodName);
+                    if (!good) continue;
+                    const multiplier = production.multipliers.get(goodName) ?? 0;
+                    const baseProd = registry.getBaseProduction(goodName);
+                    const weeklyRate = baseProd * (production.citizens / 10) * multiplier;
+                    const marketEntry = market.getEntry(good);
+                    const weeklyDemand = marketEntry?.demand && marketEntry.demand > 0
+                        ? marketEntry.demand
+                        : demandAlgorithm(good, production.citizens);
+                    const supply = Math.round(marketEntry?.supply ?? 0);
+                    state.rateValue.textContent = `${weeklyRate.toFixed(1)}/week`;
+                    state.stockValue.textContent = `${supply} stock  (demand ${weeklyDemand}/week)`;
+                }
             }
 
-            for (const [goodName, state] of productionStates) {
-                const good = registry.getGood(goodName);
-                if (!good) continue;
-                const multiplier = production.multipliers.get(goodName) ?? 0;
-                const baseProd = registry.getBaseProduction(goodName);
-                const weeklyRate = baseProd * (production.citizens / 10) * multiplier;
-                const marketEntry = market.getEntry(good);
-                const weeklyDemand = marketEntry?.demand && marketEntry.demand > 0
-                    ? marketEntry.demand
-                    : demandAlgorithm(good, production.citizens);
-                const supply = Math.round(marketEntry?.supply ?? 0);
-                state.rateValue.textContent = `${weeklyRate.toFixed(1)}/week`;
-                state.stockValue.textContent = `${supply} stock  (demand ${weeklyDemand}/week)`;
-            }
+            refreshProductionFacilities();
 
+            const hasAnySection = hasProductionData || productionFacilityStates.size > 0;
+            productionEmptyState.classList.toggle("hidden", hasAnySection && !hasProductionData);
         };
         refreshProductionPanel();
         panels.push(prodPanel);
@@ -876,6 +1012,510 @@ export class HUDcontroller {
         buildShipyardCards();
         panels.push(shipyardPanel);
         modalBody.appendChild(shipyardPanel);
+
+        // ---- Mayor Panel ----
+        const mayorPanel = document.createElement("div");
+        mayorPanel.classList.add("modal-panel", "hidden");
+        mayorPanel.id = "panel-mayor";
+
+        const mayorStatusCard = document.createElement("section");
+        mayorStatusCard.classList.add("mayor-card", "mayor-status-card");
+        const mayorStatusTitle = document.createElement("h3");
+        mayorStatusTitle.classList.add("mayor-card-title");
+        mayorStatusTitle.textContent = "Mayor Dashboard";
+        const mayorStatusMeta = document.createElement("div");
+        mayorStatusMeta.classList.add("mayor-status-meta");
+
+        const mayorTreasuryChip = document.createElement("div");
+        mayorTreasuryChip.classList.add("mayor-status-chip");
+        const mayorTreasuryLabel = document.createElement("span");
+        mayorTreasuryLabel.classList.add("mayor-status-chip-label");
+        mayorTreasuryLabel.textContent = "Treasury";
+        const mayorTreasuryValue = document.createElement("strong");
+        mayorTreasuryValue.classList.add("mayor-status-chip-value");
+        mayorTreasuryChip.appendChild(mayorTreasuryLabel);
+        mayorTreasuryChip.appendChild(mayorTreasuryValue);
+
+        const mayorOfficeChip = document.createElement("div");
+        mayorOfficeChip.classList.add("mayor-status-chip");
+        const mayorOfficeLabel = document.createElement("span");
+        mayorOfficeLabel.classList.add("mayor-status-chip-label");
+        mayorOfficeLabel.textContent = "Office";
+        const mayorOfficeValue = document.createElement("strong");
+        mayorOfficeValue.classList.add("mayor-status-chip-value");
+        mayorOfficeChip.appendChild(mayorOfficeLabel);
+        mayorOfficeChip.appendChild(mayorOfficeValue);
+
+        const mayorProjectChip = document.createElement("div");
+        mayorProjectChip.classList.add("mayor-status-chip");
+        const mayorProjectLabel = document.createElement("span");
+        mayorProjectLabel.classList.add("mayor-status-chip-label");
+        mayorProjectLabel.textContent = "Facilities";
+        const mayorProjectValue = document.createElement("strong");
+        mayorProjectValue.classList.add("mayor-status-chip-value");
+        mayorProjectChip.appendChild(mayorProjectLabel);
+        mayorProjectChip.appendChild(mayorProjectValue);
+
+        mayorStatusMeta.appendChild(mayorTreasuryChip);
+        mayorStatusMeta.appendChild(mayorOfficeChip);
+        mayorStatusMeta.appendChild(mayorProjectChip);
+
+        const mayorStatusText = document.createElement("p");
+        mayorStatusText.classList.add("mayor-status-text");
+        const mayorReputationText = document.createElement("p");
+        mayorReputationText.classList.add("mayor-reputation-text");
+        const mayorElectionText = document.createElement("p");
+        mayorElectionText.classList.add("mayor-election-text");
+        mayorStatusCard.appendChild(mayorStatusTitle);
+        mayorStatusCard.appendChild(mayorStatusMeta);
+        mayorStatusCard.appendChild(mayorStatusText);
+        mayorStatusCard.appendChild(mayorReputationText);
+        mayorStatusCard.appendChild(mayorElectionText);
+
+        const candidacyBtn = document.createElement("button");
+        candidacyBtn.classList.add("mayor-action-btn", "mayor-action-btn-wide");
+        candidacyBtn.textContent = `Run for mayor (${ELECTION_FEE_GOLD.toLocaleString()} gold)`;
+        candidacyBtn.addEventListener("click", () => {
+            this._mayorSystem?.handle({
+                type: "declare_candidacy",
+                cityId: city.id,
+            });
+        });
+        mayorStatusCard.appendChild(candidacyBtn);
+        mayorPanel.appendChild(mayorStatusCard);
+
+        const mayorActionsCard = document.createElement("section");
+        mayorActionsCard.classList.add("mayor-card", "mayor-actions-card");
+        const mayorActionsTitle = document.createElement("h3");
+        mayorActionsTitle.classList.add("mayor-card-title");
+        mayorActionsTitle.textContent = "Treasury Actions";
+        const mayorActionsHint = document.createElement("p");
+        mayorActionsHint.classList.add("mayor-actions-hint");
+        mayorActionsHint.textContent = "Move funds, invest in population growth, or commission new production facilities.";
+        mayorActionsCard.appendChild(mayorActionsTitle);
+        mayorActionsCard.appendChild(mayorActionsHint);
+
+        const treasurySummaryGrid = document.createElement("div");
+        treasurySummaryGrid.classList.add("treasury-summary-grid");
+
+        const createTreasuryStat = (labelText: string, valueClass: string) => {
+            const stat = document.createElement("div");
+            stat.classList.add("treasury-stat");
+            const label = document.createElement("span");
+            label.classList.add("treasury-stat-label");
+            label.textContent = labelText;
+            const value = document.createElement("strong");
+            value.classList.add("treasury-stat-value", valueClass);
+            stat.appendChild(label);
+            stat.appendChild(value);
+            return { stat, value };
+        };
+
+        const cityTreasuryStat = createTreasuryStat("City treasury", "is-city");
+        const companyTreasuryStat = createTreasuryStat("Your company", "is-company");
+        const treasuryAuthorityStat = createTreasuryStat("Authority", "is-authority");
+
+        treasurySummaryGrid.appendChild(cityTreasuryStat.stat);
+        treasurySummaryGrid.appendChild(companyTreasuryStat.stat);
+        treasurySummaryGrid.appendChild(treasuryAuthorityStat.stat);
+        mayorActionsCard.appendChild(treasurySummaryGrid);
+
+        // Treasury Transfer Slider
+        const transferSection = document.createElement("section");
+        transferSection.classList.add("treasury-transfer-card");
+
+        const transferSectionHeader = document.createElement("div");
+        transferSectionHeader.classList.add("treasury-transfer-header");
+
+        const transferSectionTitle = document.createElement("h4");
+        transferSectionTitle.classList.add("treasury-transfer-title");
+        transferSectionTitle.textContent = "Treasury Transfer";
+
+        const transferSectionMeta = document.createElement("p");
+        transferSectionMeta.classList.add("treasury-transfer-meta");
+        transferSectionMeta.textContent = "Drag left to pay out to your company, right to deposit funds into the city.";
+
+        transferSectionHeader.appendChild(transferSectionTitle);
+        transferSectionHeader.appendChild(transferSectionMeta);
+        transferSection.appendChild(transferSectionHeader);
+
+        const transferWrap = document.createElement("div");
+        transferWrap.classList.add("treasury-transfer-wrap");
+
+        const transferSliderRow = document.createElement("div");
+        transferSliderRow.classList.add("mayor-action-row");
+
+        const transferSlider = document.createElement("div");
+        transferSlider.classList.add("trade-slider");
+
+        const sliderLane = document.createElement("div");
+        sliderLane.classList.add("trade-slider-lane");
+
+        const fromCityRail = document.createElement("div");
+        fromCityRail.classList.add("trade-slider-rail", "trade-slider-rail-sell");
+        const toCityRail = document.createElement("div");
+        toCityRail.classList.add("trade-slider-rail", "trade-slider-rail-buy");
+        const centerMark = document.createElement("div");
+        centerMark.classList.add("trade-slider-center");
+        const fill = document.createElement("div");
+        fill.classList.add("trade-slider-fill");
+
+        const handle = document.createElement("button");
+        handle.type = "button";
+        handle.classList.add("trade-slider-handle");
+
+        const handleAmount = document.createElement("span");
+        handleAmount.classList.add("trade-slider-handle-amount");
+        const handleDirection = document.createElement("span");
+        handleDirection.classList.add("trade-slider-handle-price");
+
+        handle.appendChild(handleAmount);
+        handle.appendChild(handleDirection);
+        sliderLane.appendChild(fromCityRail);
+        sliderLane.appendChild(toCityRail);
+        sliderLane.appendChild(fill);
+        sliderLane.appendChild(centerMark);
+        sliderLane.appendChild(handle);
+        transferSlider.appendChild(sliderLane);
+        transferSliderRow.appendChild(transferSlider);
+        transferWrap.appendChild(transferSliderRow);
+
+        const transferLegend = document.createElement("div");
+        transferLegend.classList.add("treasury-transfer-legend");
+        const legendOut = document.createElement("span");
+        legendOut.classList.add("treasury-transfer-legend-item", "is-out");
+        legendOut.textContent = "City → Company";
+        const legendIn = document.createElement("span");
+        legendIn.classList.add("treasury-transfer-legend-item", "is-in");
+        legendIn.textContent = "Company → City";
+        transferLegend.appendChild(legendOut);
+        transferLegend.appendChild(legendIn);
+        transferWrap.appendChild(transferLegend);
+
+        let transferSliderValue = 0;
+        let transferIsDragging = false;
+        let lastExecutedValue = 0;
+        const maxTransferAmount = 1000000;
+
+        const applyTransferSliderState = (v: number) => {
+            transferSliderValue = clamp(v, -100, 100);
+
+            if (transferSliderValue === 0) {
+                transferSlider.className = "trade-slider is-idle";
+                fill.style.left = "50%";
+                fill.style.width = "0%";
+                handle.style.left = "50%";
+                handleAmount.textContent = "No transfer";
+                handleDirection.textContent = "";
+                return;
+            }
+
+            const normalized = transferSliderValue / 100;
+            const handleLeft = 50 + normalized * 50;
+            handle.style.left = `${handleLeft}%`;
+
+            if (transferSliderValue > 0) {
+                const qty = sliderQty(transferSliderValue, maxTransferAmount);
+                transferSlider.className = "trade-slider is-buy";
+                fill.style.left = "50%";
+                fill.style.width = `${normalized * 50}%`;
+                handleAmount.textContent = `+${qty}`;
+                handleDirection.textContent = "to City";
+            } else {
+                const qty = sliderQty(transferSliderValue, maxTransferAmount);
+                transferSlider.className = "trade-slider is-sell";
+                fill.style.left = `${50 + normalized * 50}%`;
+                fill.style.width = `${Math.abs(normalized) * 50}%`;
+                handleAmount.textContent = `-${qty}`;
+                handleDirection.textContent = "from City";
+            }
+        };
+
+        const getTransferValueFromPointer = (clientX: number): number => {
+            const rect = sliderLane.getBoundingClientRect();
+            if (rect.width <= 0) return 0;
+            const centerX = rect.left + rect.width / 2;
+            const halfWidth = rect.width / 2;
+            const delta = clientX - centerX;
+            const raw = clamp(delta / halfWidth, -1, 1);
+            return Math.round(raw * 100);
+        };
+
+        const executeTransfer = () => {
+            if (transferSliderValue > 0 && transferSliderValue !== lastExecutedValue) {
+                const qty = sliderQty(transferSliderValue, maxTransferAmount);
+                this._mayorSystem?.handle({
+                    type: "player_to_city",
+                    cityId: city.id,
+                    amount: qty,
+                });
+                lastExecutedValue = transferSliderValue;
+            } else if (transferSliderValue < 0 && transferSliderValue !== lastExecutedValue) {
+                const qty = sliderQty(transferSliderValue, maxTransferAmount);
+                this._mayorSystem?.handle({
+                    type: "city_to_player",
+                    cityId: city.id,
+                    amount: qty,
+                });
+                lastExecutedValue = transferSliderValue;
+            }
+        };
+
+        const startTransferDrag = (e: MouseEvent) => {
+            transferIsDragging = true;
+            applyTransferSliderState(getTransferValueFromPointer(e.clientX));
+        };
+
+        const moveTransferDrag = (e: MouseEvent) => {
+            if (transferIsDragging) {
+                applyTransferSliderState(getTransferValueFromPointer(e.clientX));
+            }
+        };
+
+        const endTransferDrag = () => {
+            if (transferIsDragging) {
+                executeTransfer();
+                transferIsDragging = false;
+                applyTransferSliderState(0);
+            }
+        };
+
+        handle.addEventListener("mousedown", startTransferDrag);
+        document.addEventListener("mousemove", moveTransferDrag);
+        document.addEventListener("mouseup", endTransferDrag);
+
+        transferSection.appendChild(transferWrap);
+        mayorActionsCard.appendChild(transferSection);
+
+        const treasuryControls = document.createElement("div");
+        treasuryControls.classList.add("treasury-controls-grid");
+
+        const populationCard = document.createElement("div");
+        populationCard.classList.add("treasury-control-card");
+        const populationTitle = document.createElement("h4");
+        populationTitle.classList.add("treasury-control-title");
+        populationTitle.textContent = "Population growth";
+        const populationText = document.createElement("p");
+        populationText.classList.add("treasury-control-text");
+        populationText.textContent = `Spend ${MAYOR_POPULATION_GOLD_COST.toLocaleString()} gold for +${MAYOR_POPULATION_GAIN.toLocaleString()} citizens.`;
+        const populationBtn = document.createElement("button");
+        populationBtn.classList.add("mayor-action-btn", "mayor-action-btn-wide");
+        populationBtn.textContent = "Invest in population";
+        populationBtn.addEventListener("click", () => {
+            console.log("[HUD] Population button clicked", { cityId: city.id });
+            this._mayorSystem?.handle({
+                type: "invest_population",
+                cityId: city.id,
+                amount: 1,
+            });
+        });
+        populationCard.appendChild(populationTitle);
+        populationCard.appendChild(populationText);
+        populationCard.appendChild(populationBtn);
+
+        const facilityCard = document.createElement("div");
+        facilityCard.classList.add("treasury-control-card");
+        const facilityTitle = document.createElement("h4");
+        facilityTitle.classList.add("treasury-control-title");
+        facilityTitle.textContent = "Production facility";
+        const facilityText = document.createElement("p");
+        facilityText.classList.add("treasury-control-text");
+        facilityText.textContent = "Choose a good and build a facility with treasury funds.";
+        const facilityRow = document.createElement("div");
+        facilityRow.classList.add("treasury-control-row");
+        const facilitySelect = document.createElement("select");
+        facilitySelect.classList.add("mayor-select");
+        for (const good of allGoods) {
+            const option = document.createElement("option");
+            option.value = good.name;
+            option.textContent = good.name;
+            facilitySelect.appendChild(option);
+        }
+        
+        const facilityBtn = document.createElement("button");
+        facilityBtn.classList.add("mayor-action-btn");
+        facilityBtn.textContent = "Build";
+        facilityBtn.addEventListener("click", () => {
+            this._mayorSystem?.handle({
+                type: "build_facility",
+                cityId: city.id,
+                goodName: facilitySelect.value,
+            });
+        });
+
+        facilityRow.appendChild(facilitySelect);
+        facilityRow.appendChild(facilityBtn);
+        facilityCard.appendChild(facilityTitle);
+        facilityCard.appendChild(facilityText);
+        facilityCard.appendChild(facilityRow);
+
+        treasuryControls.appendChild(populationCard);
+        treasuryControls.appendChild(facilityCard);
+        mayorActionsCard.appendChild(treasuryControls);
+        mayorPanel.appendChild(mayorActionsCard);
+
+        // ---- Facilities Display Card ----
+        const facilitiesCard = document.createElement("section");
+        facilitiesCard.classList.add("mayor-card", "mayor-facilities-card");
+        const facilitiesTitle = document.createElement("h3");
+        facilitiesTitle.classList.add("mayor-card-title");
+        facilitiesTitle.textContent = "Production Facilities";
+        const facilitiesSubtitle = document.createElement("p");
+        facilitiesSubtitle.classList.add("mayor-facilities-subtitle");
+        facilitiesSubtitle.textContent = "Facility output is mirrored in the Production tab for quick oversight.";
+        const facilitiesList = document.createElement("div");
+        facilitiesList.classList.add("mayor-facility-grid");
+        facilitiesCard.appendChild(facilitiesTitle);
+        facilitiesCard.appendChild(facilitiesSubtitle);
+        facilitiesCard.appendChild(facilitiesList);
+        mayorPanel.appendChild(facilitiesCard);
+
+        const mayorLogCard = document.createElement("section");
+        mayorLogCard.classList.add("mayor-card");
+        const mayorLogTitle = document.createElement("h3");
+        mayorLogTitle.classList.add("mayor-card-title");
+        mayorLogTitle.textContent = "City Financial Log";
+        const mayorLogList = document.createElement("div");
+        mayorLogList.classList.add("mayor-log-list");
+        mayorLogCard.appendChild(mayorLogTitle);
+        mayorLogCard.appendChild(mayorLogList);
+        mayorPanel.appendChild(mayorLogCard);
+
+        const refreshMayorPanel = () => {
+            const isMayor = city.hasComponent(PlayerIsMayor);
+            const companyGold = this._getPlayerCompanyGold()?.amount ?? 0;
+            const treasuryGold = cityTreasury?.amount ?? 0;
+            cityTreasuryStat.value.textContent = `${treasuryGold.toLocaleString()}£`;
+            companyTreasuryStat.value.textContent = `${companyGold.toLocaleString()}£`;
+            mayorStatusText.textContent = isMayor
+                ? "Incumbent mayor. You permanently control city administration."
+                : "You are not mayor in this city.";
+
+            const reputation = Math.max(0, Math.min(100, governance?.reputationPercent ?? 0));
+            mayorReputationText.textContent = `Reputation: ${Math.round(reputation)}% (50% required)`;
+
+            const snapshotWeek = GameTime.getInstance().snapshot().week;
+            const nextElectionWeek = Math.ceil(snapshotWeek / 2) * 2;
+            mayorElectionText.textContent = isMayor
+                ? "Elections disabled due to permanent incumbency."
+                : `Next election cycle: week ${nextElectionWeek}`;
+
+            const candidacyActive = governance?.candidateForElection ?? false;
+            treasuryAuthorityStat.value.textContent = isMayor ? "Mayor" : candidacyActive ? "Candidate" : "Locked";
+            if (!isMayor && candidacyActive) {
+                mayorElectionText.textContent += " · Candidacy registered";
+            }
+
+            const canAffordCandidacy = companyGold >= ELECTION_FEE_GOLD;
+            candidacyBtn.disabled = isMayor || candidacyActive || !canAffordCandidacy;
+            candidacyBtn.classList.toggle("hidden", isMayor);
+            candidacyBtn.title = !canAffordCandidacy
+                ? `Need ${ELECTION_FEE_GOLD.toLocaleString()} gold`
+                : candidacyActive
+                    ? "Already registered for next election"
+                    : "";
+
+            mayorTreasuryValue.textContent = `${treasuryGold.toLocaleString()}£`;
+            mayorOfficeValue.textContent = isMayor ? "Incumbent" : candidacyActive ? "Candidate" : "Challenger";
+            mayorProjectValue.textContent = `${city.getComponent(CityFacilities)?.serialize().length ?? 0} built`;
+
+            // Hide/show treasury section based on mayor status
+            mayorActionsCard.classList.toggle("hidden", !isMayor);
+
+            // Reset transfer slider when not mayor
+            if (!isMayor) {
+                applyTransferSliderState(0);
+                lastExecutedValue = 0;
+            }
+
+            handle.style.pointerEvents = isMayor ? "auto" : "none";
+
+            populationBtn.disabled = !isMayor;
+            facilitySelect.disabled = !isMayor;
+            facilityBtn.disabled = !isMayor;
+
+            mayorLogList.innerHTML = "";
+            const logs = governance?.treasuryLog ?? [];
+            if (logs.length === 0) {
+                const empty = document.createElement("p");
+                empty.classList.add("mayor-log-empty");
+                empty.textContent = "No financial actions logged yet.";
+                mayorLogList.appendChild(empty);
+            } else {
+                for (const entry of logs.slice(0, 12)) {
+                    const item = document.createElement("article");
+                    item.classList.add("mayor-log-item");
+                    const amountPrefix = entry.type === "city_to_player" || entry.type === "population_investment" || entry.type === "facility_construction" || entry.type === "election_fee"
+                        ? "-"
+                        : "+";
+                    item.textContent = `${entry.note} | ${amountPrefix}${entry.amount.toLocaleString()} gold | treasury ${entry.cityBalanceAfter.toLocaleString()} | company ${entry.playerBalanceAfter.toLocaleString()}`;
+                    mayorLogList.appendChild(item);
+                }
+            }
+
+            const facilitiesCount = city.getComponent(CityFacilities)?.serialize().length ?? 0;
+            if (isMayor) {
+                mayorStatusText.textContent += ` Active facilities: ${facilitiesCount}.`;
+            }
+
+            // Update facilities display
+            facilitiesList.innerHTML = "";
+            const facilitiesArray = getFacilitySummaries();
+            if (facilitiesArray.length === 0) {
+                const empty = document.createElement("p");
+                empty.classList.add("mayor-log-empty");
+                empty.textContent = "No production facilities built.";
+                facilitiesList.appendChild(empty);
+            } else {
+                for (const facility of facilitiesArray) {
+                    const good = registry.getGood(facility.goodName);
+                    const item = document.createElement("article");
+                    item.classList.add("mayor-facility-card");
+
+                    const icon = document.createElement("img");
+                    icon.classList.add("mayor-facility-icon");
+                    icon.src = good ? `./assets/images/icons/${good.img}` : "";
+                    icon.alt = facility.goodName;
+
+                    const body = document.createElement("div");
+                    body.classList.add("mayor-facility-body");
+
+                    const header = document.createElement("div");
+                    header.classList.add("mayor-facility-header");
+
+                    const name = document.createElement("h4");
+                    name.classList.add("mayor-facility-name");
+                    name.textContent = facility.goodName;
+
+                    const countBadge = document.createElement("span");
+                    countBadge.classList.add("mayor-facility-count");
+                    countBadge.textContent = facility.count > 1 ? `${facility.count} sites` : "1 site";
+
+                    header.appendChild(name);
+                    header.appendChild(countBadge);
+
+                    const output = document.createElement("p");
+                    output.classList.add("mayor-facility-output");
+                    output.textContent = `+${facility.weeklyOutput.toLocaleString()} per week`;
+
+                    const cost = document.createElement("p");
+                    cost.classList.add("mayor-facility-cost");
+                    cost.textContent = `${facility.treasuryCost.toLocaleString()} gold invested`;
+
+                    body.appendChild(header);
+                    body.appendChild(output);
+                    body.appendChild(cost);
+
+                    item.appendChild(icon);
+                    item.appendChild(body);
+                    facilitiesList.appendChild(item);
+                }
+            }
+        };
+
+        refreshMayorPanel();
+        panels.push(mayorPanel);
+        modalBody.appendChild(mayorPanel);
 
         // ---- Trade Panel ----
         const tradePanel = document.createElement("div");
@@ -1374,6 +2014,9 @@ export class HUDcontroller {
                 if (target === "shipyard") {
                     buildShipyardCards();
                 }
+                if (target === "mayor") {
+                    refreshMayorPanel();
+                }
             });
         });
 
@@ -1417,6 +2060,7 @@ export class HUDcontroller {
             refreshTradeTable();
             refreshProductionPanel();
             refreshShipyardLive?.();
+            refreshMayorPanel();
         };
         this._activeModalRealtimeRefresh = () => {
             if (activeTab === "production") {
@@ -1424,6 +2068,9 @@ export class HUDcontroller {
             }
             if (activeTab === "shipyard") {
                 refreshShipyardLive?.();
+            }
+            if (activeTab === "mayor") {
+                refreshMayorPanel();
             }
         };
     }
